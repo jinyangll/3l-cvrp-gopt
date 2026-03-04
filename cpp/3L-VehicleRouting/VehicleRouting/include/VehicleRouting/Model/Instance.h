@@ -8,6 +8,7 @@
 #include <ranges>
 #include <string>
 #include <utility>
+#include <span>
 
 namespace VehicleRouting
 {

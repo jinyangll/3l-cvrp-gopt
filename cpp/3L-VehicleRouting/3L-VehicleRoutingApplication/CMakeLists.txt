@@ -48,3 +48,16 @@ if(CXX)
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE VehicleRouting ContainerLoading CommonBasics)
+
+#python
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+target_link_libraries(${PROJECT_NAME} PRIVATE Python3::Python)
+
+# pybind11
+add_subdirectory(
+    ${CMAKE_SOURCE_DIR}/external/pybind11
+    ${CMAKE_BINARY_DIR}/pybind11-build
+)
+target_link_libraries(${PROJECT_NAME} PRIVATE pybind11::embed)
+
+

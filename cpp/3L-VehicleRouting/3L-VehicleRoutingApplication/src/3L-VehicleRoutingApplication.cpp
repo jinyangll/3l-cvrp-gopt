@@ -20,137 +20,213 @@ using namespace VehicleRouting::Algorithms;
 using namespace VehicleRouting::Model;
 using namespace VehicleRouting::Helper;
 
-void Run(std::string& inputFilePath,
-         std::string& filename,
-         std::string& parameterFile,
-         std::string& outdir,
-         bool enableTimeSuffix,
-         int seedOffset)
-{
-    InputParameters inputParameters;
 
-    if (parameterFile != "")
-    {
-        inputParameters = HelperIO::ReadInputParameters(parameterFile);
-    }
-    else
-    {
-        inputParameters.ContainerLoading.LoadingProblem.Variant = LoadingProblemParams::VariantType::AllConstraints;
-    }
+// for pybind11 test
+#include <pybind11/embed.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
-    inputParameters.SetLoadingFlags();
-    std::ifstream ifs(inputFilePath + filename);
-    ////std::ifstream ifs("data/3LVRP/ConvertedInstances/E016-05m.json");
+#include <vector>
+using namespace std;
+#define endl "\n";
 
-    // https://stackoverflow.com/questions/16357999/current-date-and-time-as-string/16358111
-    auto t = std::time(nullptr);
-    auto tm = *std::localtime(&t);
+namespace py = pybind11;
 
-    std::ostringstream oss;
-    oss << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S");
-    std::string dateTimeString = oss.str();
+vector<int> enterRoute() {
+  vector<int> route;
+  string line;
 
-    std::string outputPath = outdir + "/";
-    if (enableTimeSuffix)
-    {
-        outputPath = outdir + dateTimeString + "/";
-    }
+  cout << "route : ";
+  getline(cin, line);
 
-    // https://stackoverflow.com/a/37524002
-    if (!std::filesystem::is_directory(outdir) || !std::filesystem::exists(outdir))
-    {
-        std::filesystem::create_directory(outdir);
-    }
+  stringstream ss(line);
+  int r;
 
-    if (!std::filesystem::is_directory(outputPath) || !std::filesystem::exists(outputPath))
-    {
-        std::filesystem::create_directory(outputPath);
-    }
+  while (ss >> r) {
+    route.push_back(r);
+  }
 
-    if (!ifs.is_open())
-    {
-        std::cerr << "File does not exist or cannot be opened: " << inputFilePath + filename << std::endl;
-        return; // or handle the error as needed
-    }
-
-    auto instance = HelperIO::ParseInstanceJson(ifs);
-
-    ////std::ofstream ofs("logfile.txt");
-    ////std::cout.rdbuf(ofs.rdbuf());
-
-    // TODO: parametrize
-    std::string startSolutionPath = inputFilePath + "../StartSolutions/Zhang/ConvertedSolutions/";
-    inputParameters.MIPSolver.Seed += seedOffset;
-
-    for (int i = 0; i < 1; ++i)
-    {
-        try
-        {
-            std::cout << "Run: " << i << "\n";
-            GRBEnv env = GRBEnv(outputPath + "/" + instance.Name + ".LOG");
-            inputParameters.MIPSolver.Seed += i;
-            BranchAndCutSolver exactAlgorithm(&instance, &env, inputParameters, startSolutionPath, outputPath);
-            exactAlgorithm.Solve();
-        }
-        catch (GRBException& e)
-        {
-            std::cout << e.getMessage();
-        }
-    }
+  return route;
 }
 
-int main(int argc, char** argv)
-{
-    // For example, call with: -i "data/3LVRP/ConvertedInstances/" -f "E016-05m.json" -o "data/3LVRP/Output/"
-    CLI::App app;
+int main() {
+  py::scoped_interpreter guard{};
 
-    std::string inputFilePath = "default";
-    std::string filename = "default";
-    std::string outdir = "default";
-    std::string parameterFile;
-    bool enableTimeSuffix = true;
-    int seedOffset = 0;
+  try {
+    py::module_ sys = py::module_::import("sys");
+        
+    // sys.attr("path").attr("append")("C:/Users/USER/Desktop/SDO/pybind_prac/python");
+    // sys.attr("path").attr("append")("C:/Users/USER/Desktop/SDO/GOPT_cvrp");
 
-    app.add_option("-i,--inputdir", inputFilePath, "The directory where the input file -f resides")->required();
-    app.add_option("-f,--file", filename, "The input file name")->required();
-    app.add_option("-o,--outdir", outdir, "The output directory")->required();
-    app.add_option("-p,--param", parameterFile, "The .json parameter full file path");
-    app.add_option("-t,--timeSuffix",
-                   enableTimeSuffix,
-                   "If the current time should be appended to the output path as a subfolder (1=true, 0=false)");
-    app.add_option("-s,--seedOffset", seedOffset, "The offset to the internal seed");
+    sys.attr("path").attr("append")("/home/kjyng/3l-cvrp-gopt/gopt");
+    sys.attr("path").attr("append")("/home/kjyng/3l-cvrp-gopt");
 
-    CLI11_PARSE(app, argc, argv);
+    py::module_ checker = py::module_::import("py_checker");
 
-    std::string inputFilePathDelimiter = inputFilePath.substr(inputFilePath.size() - 1, inputFilePath.size());
-    std::string inputFileSuffix = filename.substr(filename.size() - 5, filename.size());
-    std::string outdirDelimiter = outdir.substr(outdir.size() - 1, outdir.size());
+    for (int i = 0; i < 5; i++) {
+      vector<int> route = enterRoute();
 
-    if (inputFilePathDelimiter != "/" && inputFilePathDelimiter != "\\")
-    {
-        throw CLI::ConversionError("-i directory path delimiter does neither math '/' nor '\\'");
+      bool check = checker.attr("check")(route).cast<bool>();
+
+      if (check) {
+        cout << "true" << endl;
+      } else {
+        cout << "false" << endl;
+      }
     }
+  } 
+  // 파이썬 에러를 터미널에 출력
+  catch (py::error_already_set& e) {
+    cerr << "\n[python error!]\n" << e.what() << endl;
+  } 
+  catch (const std::exception& e) {
+    cerr << "\n[cpp error!]\n" << e.what() << endl;
+  }
 
-    if (inputFileSuffix != ".json")
-    {
-        throw CLI::ConversionError("-f does not have an .json suffix");
-    }
-
-    if (outdirDelimiter != "/" && outdirDelimiter != "\\")
-    {
-        throw CLI::ConversionError("-o directory path delimiter does neither math '/' nor '\\'");
-    }
-    try
-    {
-        Run(inputFilePath, filename, parameterFile, outdir, enableTimeSuffix, seedOffset);
-        return EXIT_SUCCESS;
-    }
-    catch (std::exception& e)
-    {
-        std::cerr << "Exception: " << e.what() << "\n";
-        return EXIT_FAILURE;
-    }
+  return 0;
 }
+
+
+
+// original Run func
+
+// void Run(std::string& inputFilePath,
+//          std::string& filename,
+//          std::string& parameterFile,
+//          std::string& outdir,
+//          bool enableTimeSuffix,
+//          int seedOffset)
+// {
+//     InputParameters inputParameters;
+
+//     if (parameterFile != "")
+//     {
+//         inputParameters = HelperIO::ReadInputParameters(parameterFile);
+//     }
+//     else
+//     {
+//         inputParameters.ContainerLoading.LoadingProblem.Variant = LoadingProblemParams::VariantType::AllConstraints;
+//     }
+
+//     inputParameters.SetLoadingFlags();
+//     std::ifstream ifs(inputFilePath + filename);
+//     ////std::ifstream ifs("data/3LVRP/ConvertedInstances/E016-05m.json");
+
+//     // https://stackoverflow.com/questions/16357999/current-date-and-time-as-string/16358111
+//     auto t = std::time(nullptr);
+//     auto tm = *std::localtime(&t);
+
+//     std::ostringstream oss;
+//     oss << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S");
+//     std::string dateTimeString = oss.str();
+
+//     std::string outputPath = outdir + "/";
+//     if (enableTimeSuffix)
+//     {
+//         outputPath = outdir + dateTimeString + "/";
+//     }
+
+//     // https://stackoverflow.com/a/37524002
+//     if (!std::filesystem::is_directory(outdir) || !std::filesystem::exists(outdir))
+//     {
+//         std::filesystem::create_directory(outdir);
+//     }
+
+//     if (!std::filesystem::is_directory(outputPath) || !std::filesystem::exists(outputPath))
+//     {
+//         std::filesystem::create_directory(outputPath);
+//     }
+
+//     if (!ifs.is_open())
+//     {
+//         std::cerr << "File does not exist or cannot be opened: " << inputFilePath + filename << std::endl;
+//         return; // or handle the error as needed
+//     }
+
+//     auto instance = HelperIO::ParseInstanceJson(ifs);
+
+//     ////std::ofstream ofs("logfile.txt");
+//     ////std::cout.rdbuf(ofs.rdbuf());
+
+//     // TODO: parametrize
+//     std::string startSolutionPath = inputFilePath + "../StartSolutions/Zhang/ConvertedSolutions/";
+//     inputParameters.MIPSolver.Seed += seedOffset;
+
+//     for (int i = 0; i < 1; ++i)
+//     {
+//         try
+//         {
+//             std::cout << "Run: " << i << "\n";
+//             GRBEnv env = GRBEnv(outputPath + "/" + instance.Name + ".LOG");
+//             inputParameters.MIPSolver.Seed += i;
+//             BranchAndCutSolver exactAlgorithm(&instance, &env, inputParameters, startSolutionPath, outputPath);
+//             exactAlgorithm.Solve();
+//         }
+//         catch (GRBException& e)
+//         {
+//             std::cout << e.getMessage();
+//         }
+//     }
+// }
+
+
+// original main 
+
+// int main(int argc, char** argv)
+// {
+//     // For example, call with: -i "data/3LVRP/ConvertedInstances/" -f "E016-05m.json" -o "data/3LVRP/Output/"
+//     CLI::App app;
+
+//     std::string inputFilePath = "default";
+//     std::string filename = "default";
+//     std::string outdir = "default";
+//     std::string parameterFile;
+//     bool enableTimeSuffix = true;
+//     int seedOffset = 0;
+
+//     app.add_option("-i,--inputdir", inputFilePath, "The directory where the input file -f resides")->required();
+//     app.add_option("-f,--file", filename, "The input file name")->required();
+//     app.add_option("-o,--outdir", outdir, "The output directory")->required();
+//     app.add_option("-p,--param", parameterFile, "The .json parameter full file path");
+//     app.add_option("-t,--timeSuffix",
+//                    enableTimeSuffix,
+//                    "If the current time should be appended to the output path as a subfolder (1=true, 0=false)");
+//     app.add_option("-s,--seedOffset", seedOffset, "The offset to the internal seed");
+
+//     CLI11_PARSE(app, argc, argv);
+
+//     std::string inputFilePathDelimiter = inputFilePath.substr(inputFilePath.size() - 1, inputFilePath.size());
+//     std::string inputFileSuffix = filename.substr(filename.size() - 5, filename.size());
+//     std::string outdirDelimiter = outdir.substr(outdir.size() - 1, outdir.size());
+
+//     if (inputFilePathDelimiter != "/" && inputFilePathDelimiter != "\\")
+//     {
+//         throw CLI::ConversionError("-i directory path delimiter does neither math '/' nor '\\'");
+//     }
+
+//     if (inputFileSuffix != ".json")
+//     {
+//         throw CLI::ConversionError("-f does not have an .json suffix");
+//     }
+
+//     if (outdirDelimiter != "/" && outdirDelimiter != "\\")
+//     {
+//         throw CLI::ConversionError("-o directory path delimiter does neither math '/' nor '\\'");
+//     }
+//     try
+//     {
+//         Run(inputFilePath, filename, parameterFile, outdir, enableTimeSuffix, seedOffset);
+//         return EXIT_SUCCESS;
+//     }
+//     catch (std::exception& e)
+//     {
+//         std::cerr << "Exception: " << e.what() << "\n";
+//         return EXIT_FAILURE;
+//     }
+// }
+
+
+
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
 // Debug program: F5 or Debug > Start Debugging menu
