@@ -36,14 +36,12 @@ from masked_ppo import MaskedPPOPolicy
 from masked_a2c import MaskedA2CPolicy
 from mycollector import PackCollector
 
-# 상단 import에 추가
 from cvrp_utils import CVRPParser # cvrp_utils.py가 있어야 함
- 
+import glob
 
-def make_env_fn(args, parser):
-    """자식 프로세스 내부에서 환경을 등록하고 생성하도록 보장하는 래퍼 함수"""
+def make_env_fn(args, parsers):
     def _make():
-        registration_envs()  # [핵심 수정] 워커 프로세스 내부에서 환경 강제 등록
+        registration_envs()  
         return gym.make(args.env.id, 
                         container_size=args.env.container_size,
                         enable_rotation=args.env.rot,
@@ -52,51 +50,40 @@ def make_env_fn(args, parser):
                         reward_type=args.train.reward_type,
                         action_scheme=args.env.scheme,
                         k_placement=args.env.k_placement,
-                        cvrp_parser=parser)
+                        cvrp_parsers=parsers)  # 리스트 전달로 변경
     return _make
 
 def make_envs(args):
-    # 1. 인자로 받은 파일 경로 사용
-    cvrp_file = args.data_path 
+    cvrp_dir = args.data_dir 
     
-    if not os.path.exists(cvrp_file):
-        print(f"Error: Data file not found at {cvrp_file}")
-        exit()
-        
-    print(f"Loading CVRP Data from: {cvrp_file}")
-    parser = CVRPParser(cvrp_file)
+    # 폴더 내 모든 txt 파일 읽기 및 파서 리스트 생성
+    file_paths = glob.glob(os.path.join(cvrp_dir, "*.txt"))
+    parsers = [CVRPParser(f) for f in file_paths]
     
-    # 2. 파싱된 정보로 환경 설정 자동 조정
-    veh_info = parser.vehicle_info
+    print(f"Loaded {len(parsers)} CVRP Data files from: {cvrp_dir}")
+    
+    # 규격은 첫 번째 파일 기준으로 통일하여 설정
+    veh_info = parsers[0].vehicle_info
     real_container_size = (veh_info['length'], veh_info['width'], veh_info['height'])
     
-    # 컨테이너 크기 덮어쓰기
     args.env.container_size = real_container_size
-    print(f"Auto-configured Container Size: {args.env.container_size}")
-    
-    # [중요] 차량 용량(Capacity) 및 대수(Count) 확인
-    print(f"Vehicle Capacity Limit: {veh_info['capacity']}")
-    print(f"Max Vehicle Count: {veh_info['count']}")
-
-    # 박스 크기 범위 재계산 (컨테이너 크기에 비례하여)
     max_dim = max(real_container_size)
     args.env.box_small = int(max_dim / 10)
     args.env.box_big = int(max_dim / 2)
 
-    # 3. 환경 생성 (람다 대신 래퍼 함수 사용)
+    # 람다 대신 래퍼 함수 사용 및 파서 리스트 전달
     train_envs = ts.env.SubprocVectorEnv(
-        [make_env_fn(args, parser) for _ in range(args.train.num_processes)]
+        [make_env_fn(args, parsers) for _ in range(args.train.num_processes)]
     )
     
     test_envs = ts.env.SubprocVectorEnv(
-        [make_env_fn(args, parser) for _ in range(1)]
+        [make_env_fn(args, parsers) for _ in range(1)]
     )
     
     train_envs.seed(args.seed)
     test_envs.seed(args.seed)
 
     return train_envs, test_envs
-
 
 def build_net(args, device):
     feature_net = model.ShareNet(

@@ -1,0 +1,49 @@
+# configuration file for training 3L-CVRP
+
+seed: 5
+cuda_deterministic: True
+log_interval: 10               # 로그 출력 간격
+
+env:
+  id: OnlinePack-v1            
+  scheme: EMS                  # 배치 후보 생성 방식 (GOPT 논문 방식)
+  rot: True                    # 회전 허용
+  box_type: cvrp               # [수정] 박스 생성 방식을 'cvrp'로 변경
+  # [수정] 텍스트 파일 기준: Length(60), Width(25), Height(30)
+  container_size: [60, 25, 30] 
+  step:           
+  k_placement: 80              # 후보 배치 개수
+  
+
+train:
+  algo: PPO
+  clip_param: 0.3
+  num_processes: 1            # [권장] 로컬 테스트 시 128은 메모리 부족 가능성 있음 (필요 시 조절)
+  num_steps: 5
+  epoch: 1000
+  last_epoch: 200  
+  batch_size: 128  
+  step_per_epoch: 40000        
+  repeat_per_collect: 1
+  gae_lambda: 0.96
+  reward_type:                 # None이면 Step-wise reward (부피 비율) 적용됨
+  gamma: 1                     # 할인율
+
+opt:  # optimizer
+  optimizer: Adam              
+  lr: 7e-5                     
+  lr_decay: True               
+  eps: 1e-5                    
+  alpha: 0.99                  
+  
+loss:
+  entropy: 0.001               
+  value: 0.5                   
+
+model:
+  padding_mask: False          
+  embed_dim: 128
+  heads: 1
+  num_layers: 3
+  forward_expansion: 2
+  dropout: 0

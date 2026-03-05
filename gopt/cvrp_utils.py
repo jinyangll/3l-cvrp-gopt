@@ -67,72 +67,52 @@ class CVRPParser:
 
 def generate_random_routes(parser: CVRPParser, num_generated_sets: int):
     """
-    무게 제약(Capacity Constraint)을 준수하며 랜덤 경로 생성
-    Return: List[List[List[int]]] -> [Set_1, Set_2, ...]
+    모든 노드 방문 여부와 상관없이, 무게 및 차량 대수 제약 내에서 
+    가능한 경로 세트를 즉시 생성하여 반환 (학습용 최적화)
     """
     capacity_limit = parser.vehicle_info['capacity']
     max_vehicles = parser.vehicle_info['count']
-    
-    # 0번(Depot)을 제외한 고객 노드 리스트
     customer_ids = list(range(1, parser.num_customers + 1))
     
     valid_route_sets = []
-    attempts = 0
-    max_attempts = num_generated_sets * 100 # 무한루프 방지
 
-    while len(valid_route_sets) < num_generated_sets and attempts < max_attempts:
-        attempts += 1
+    while len(valid_route_sets) < num_generated_sets:
+        random.shuffle(customer_ids) # 매번 다른 아이템 시퀀스 제공
         
-        # 1. 고객 순서 랜덤 셔플
-        random.shuffle(customer_ids)
-        
-        current_set = []     # 이번 세트의 모든 차량 경로들
-        current_route = []   # 현재 채우고 있는 차량의 경로
-        current_load = 0     # 현재 차량의 적재 무게
-        
-        possible_with_shuffle = True
+        current_set = []
+        current_route = []
+        current_load = 0
         
         for customer in customer_ids:
             demand = parser.nodes[customer]['demand']
             
-            # 노드 하나가 차량 용량을 넘는 경우 (데이터 오류가 아니면 불가능)
-            if demand > capacity_limit:
-                print(f"Error: Customer {customer} demand {demand} > Capacity {capacity_limit}")
-                possible_with_shuffle = False
-                break
-
-            # 현재 차량에 더 담을 수 있는지 확인
+            # 1. 현재 차량에 추가 가능한 경우
             if current_load + demand <= capacity_limit:
                 current_route.append(customer)
                 current_load += demand
             else:
-                # 용량 초과 -> 현재 경로 마감하고 새 차량 배차
+                # 2. 용량 초과 시 현재 경로를 세트에 추가
                 current_set.append(current_route)
                 
-                # 새 차량 시작
+                # 3. 차량 대수를 모두 채웠다면 중단 (모든 노드 방문 안 해도 됨)
+                if len(current_set) >= max_vehicles:
+                    current_route = [] # 마지막 경로는 추가하지 않음
+                    break
+                
+                # 4. 새 차량 시작
                 current_route = [customer]
                 current_load = demand
-                
-                # 차량 대수 제한 확인
-                # 현재 마감된 차량 수 + 지금 막 시작한 차량(1) > 최대 차량 대수
-                if len(current_set) + 1 > max_vehicles:
-                    possible_with_shuffle = False # 이 셔플 순서로는 차량 대수 부족
-                    break
         
-        if possible_with_shuffle:
-            # 마지막 남은 경로 추가
-            if current_route:
-                current_set.append(current_route)
+        # 남은 경로가 있고 차량 대수 여유가 있다면 추가
+        if current_route and len(current_set) < max_vehicles:
+            current_set.append(current_route)
             
-            # 남는 차량이 있다면 빈 리스트로 채움 (형식 유지용)
-            while len(current_set) < max_vehicles:
-                current_set.append([])
-                
-            valid_route_sets.append(current_set)
+        # 형식 유지를 위해 부족한 차량 대수는 빈 리스트로 채움
+        while len(current_set) < max_vehicles:
+            current_set.append([])
             
-    if len(valid_route_sets) < num_generated_sets:
-        print(f"Warning: Only generated {len(valid_route_sets)} valid sets out of {num_generated_sets} requested.")
-        
+        valid_route_sets.append(current_set)
+            
     return valid_route_sets
 
 def get_items_for_route_reversed(parser: CVRPParser, route: list):

@@ -7,10 +7,10 @@ curr_path = os.path.dirname(os.path.abspath(__file__))
 
 def get_args():
     parser = argparse.ArgumentParser()
-    
-    #CVRP 데이터 파일 경로
-    parser.add_argument('--data-path', type=str, default="3L_CVRP/3l_cvrp01.txt", 
-                        help="Path to the CVRP text file containing vehicle and item info")
+
+    # CVRP 데이터 폴더 경로 (단일 파일이 아닌 폴더)
+    parser.add_argument('--data-dir', type=str, default="3L_CVRP", 
+                        help="Directory containing CVRP text files")
 
     # [변경] 기본 설정 파일을 cvrp_config.yaml로 변경
     parser.add_argument('--config', type=str, default="cfg/cvrp_config.yaml",
@@ -29,26 +29,15 @@ def get_args():
     
     args, unknown = parser.parse_known_args()
 
-    # Config 파일 로드 로직
-    try:
-        # config 경로가 절대 경로가 아니면 현재 파일 기준으로 찾음
-        if not os.path.isabs(args.config):
-            args.config = os.path.join(curr_path, args.config)
-            
-        cfg = OmegaConf.load(args.config)
-    except FileNotFoundError:
-        print(f"No configuration file found at: {args.config}")
-        # 파일이 없으면 빈 설정으로라도 진행하거나 종료 (여기서는 진행 시도)
-        exit()
+    # 예외 처리(try-except) 제거 및 바로 할당
+    if not os.path.isabs(args.config):
+        args.config = os.path.join(curr_path, args.config)
+        
+    cfg = OmegaConf.load(args.config)
     
     # -----------------------------------------------------------------
     # 아래 로직은 YAML에 적힌 '기본값'을 기준으로 박스 크기 범위를 계산합니다.
-    # 하지만 ts_train.py가 실행되면 텍스트 파일을 읽고 이 값들을 다시 덮어쓰게 됩니다.
-    # 초기화를 위해 남겨두는 코드입니다.
     # -----------------------------------------------------------------
-    
-    # 컨테이너 크기 기반으로 box_small/big 계산 (YAML 기본값 기준)
-    # 실제 학습 시에는 ts_train.py에서 파일 데이터에 맞게 재조정됩니다.
     max_dim = max(cfg.env.container_size)
     box_small = int(max_dim / 10)
     box_big = int(max_dim / 2)
@@ -87,5 +76,5 @@ def get_args():
 
 if __name__ == "__main__":
     args = get_args()
-    print(f"Data Path: {args.data_path}")
+    print(f"Data Dir: {args.data_dir}")
     print(f"Config: {args.config}")

@@ -84,9 +84,10 @@ class LoadBoxCreator(BoxCreator):
             self.box_index += 1
 
 class CVRPBoxCreator(BoxCreator):
-    def __init__(self, cvrp_parser: CVRPParser):
+    def __init__(self, cvrp_parsers: list):
         super().__init__()
-        self.parser = cvrp_parser
+        self.parsers = cvrp_parsers # 리스트로 저장
+        self.parser = None # 현재 에피소드에서 사용할 파서
         self.node_items = [] 
         self.current_node_idx = 0
         
@@ -94,8 +95,13 @@ class CVRPBoxCreator(BoxCreator):
         self.node_items = []
         self.current_node_idx = 0
         
-        route_sets = generate_random_routes(self.parser, 1) 
-        vehicle_routes = route_sets[0] 
+        # 유효한 경로가 생성될 때까지 파서를 다시 무작위로 뽑으며 반복
+        route_sets = []
+        while not route_sets:
+            self.parser = random.choice(self.parsers)
+            route_sets = generate_random_routes(self.parser, 1) 
+            
+        vehicle_routes = route_sets[0]
         
         valid_routes = [r for r in vehicle_routes if len(r) > 0]
         if not valid_routes:
@@ -104,13 +110,13 @@ class CVRPBoxCreator(BoxCreator):
             target_route = random.choice(valid_routes)
 
         self.current_route = target_route
-        self.total_route_items = 0 # 추가됨: 해당 경로의 총 아이템 개수
+        self.total_route_items = 0 # 해당 경로의 총 아이템 개수 누적
             
         for node_id in reversed(target_route):
             items_in_node = self.parser.items.get(node_id, [])
             if items_in_node:
                 self.node_items.append(list(items_in_node)) 
-                self.total_route_items += len(items_in_node) # 누적
+                self.total_route_items += len(items_in_node)
         
         if not self.node_items:
              self.node_items = [[(0, 0, 0)]]
@@ -155,3 +161,28 @@ class CVRPBoxCreator(BoxCreator):
             별도로 box_list에 append하는 기존 로직이 불필요합니다.
         """
         pass
+
+class EvalBoxCreator(CVRPBoxCreator):
+    def __init__(self, cvrp_parser: CVRPParser):
+        super().__init__([cvrp_parser]) 
+        self.parser = cvrp_parser 
+        self.eval_route = []
+
+    def set_route(self, route):
+        self.eval_route = route
+
+    def reset(self):
+        self.node_items = []
+        self.current_node_idx = 0
+        self.current_route = self.eval_route
+        self.total_route_items = 0
+        
+        for node_id in reversed(self.eval_route):
+            items_in_node = self.parser.items.get(node_id, [])
+            if items_in_node:
+                self.node_items.append(list(items_in_node))
+                self.total_route_items += len(items_in_node)
+        
+        if not self.node_items:
+             self.node_items = [[(0, 0, 0)]]
+             self.total_route_items = 0

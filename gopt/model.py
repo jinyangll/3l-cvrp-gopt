@@ -319,4 +319,3 @@ def init(module, weight_init, bias_init, gain=1):
     return module
 
 init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), nn.init.calculate_gain('leaky_relu'))
-

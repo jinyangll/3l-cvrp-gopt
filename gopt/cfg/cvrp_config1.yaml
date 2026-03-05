@@ -1,0 +1,56 @@
+# configuration file for training 3L-CVRP (High Performance Mode)
+
+seed: 5
+cuda_deterministic: True
+log_interval: 10               
+
+env:
+  id: OnlinePack-v1            
+  scheme: EMS                  
+  rot: True                    
+  box_type: cvrp               
+  container_size: [60, 25, 30] 
+  step:           
+  k_placement: 80              # 후보지 개수 유지 (충분함)
+  
+
+train:
+  algo: PPO
+  clip_param: 0.2              
+  num_processes: 8             
+  num_steps: 128               
+  
+  # [변경 1: 학습 기간 대폭 증가]
+  # 시간 투자를 통해 더 많은 경로 케이스를 경험하게 합니다.
+  epoch: 1000                  # 300 -> 1000 (충분히 오래 학습)
+  last_epoch: 1000             # Decay 스케줄도 끝까지 유지
+  
+  # [변경 2: 데이터 수집량 증가]
+  # 한 번 업데이트할 때 더 많은 데이터를 보고 판단하게 합니다.
+  step_per_epoch: 10000        # 4000 -> 10000 (에폭당 경험량 2.5배 증가)
+  repeat_per_collect: 10       # 데이터가 많아졌으므로 재학습 횟수는 살짝 조절 (Overfitting 방지)
+  
+  batch_size: 128              # 64 -> 128 (안정적인 Gradient 계산)
+  
+  gae_lambda: 0.95
+  reward_type:                 
+  gamma: 0.99                  
+
+opt:  # optimizer
+  optimizer: Adam              # optimizer: Adam, RMSprop
+  lr: 7e-5                     # learning rate (RMSprop7e-4, 1e-6, Adam7e-5)
+  lr_decay: True               # use a linear schedule on the learning rate
+  eps: 1e-5                    # epsilon (default: 1e-5)
+  alpha: 0.99                  # RMSprop alpha (default: 0.99)
+  
+loss:
+  entropy: 0.001               # entropy term coefficient (default: 0.01)
+  value: 0.5                   # value loss coefficient (default: 0.5)
+
+model:
+  padding_mask: False                   # padding mask
+  embed_dim: 128
+  heads: 1
+  num_layers: 3
+  forward_expansion: 2
+  dropout: 0
