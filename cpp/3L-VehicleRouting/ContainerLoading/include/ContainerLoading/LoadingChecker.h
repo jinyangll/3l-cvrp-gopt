@@ -1,161 +1,181 @@
 #pragma once
 
-#include "CommonBasics/Helper/ModelServices.h"
-
-#include "ProblemParameters.h"
-
-#include "Algorithms/MultiContainer/BP_MIP_1D.h"
-#include "Model/ContainerLoadingInstance.h"
-
 #include <boost/dynamic_bitset.hpp>
 #include <boost/functional/hash.hpp>
 
-namespace ContainerLoading
-{
+#include "Algorithms/MultiContainer/BP_MIP_1D.h"
+#include "CommonBasics/Helper/ModelServices.h"
+#include "Model/ContainerLoadingInstance.h"
+#include "ProblemParameters.h"
+
+namespace ContainerLoading {
 using namespace Algorithms;
 
-class LoadingChecker
-{
-  public:
-    const ContainerLoadingParams Parameters;
+class LoadingChecker {
+ public:
+  const ContainerLoadingParams Parameters;
+  static void init_python_interpreter();
 
-    explicit LoadingChecker(const ContainerLoadingParams& parameters) : Parameters(parameters)
-    {
-        using enum LoadingFlag;
+  explicit LoadingChecker(const ContainerLoadingParams& parameters)
+      : Parameters(parameters) {
+    using enum LoadingFlag;
 
-        std::vector<LoadingFlag> usedLoadingFlags = {Complete, NoSupport, LifoNoSequence};
+    std::vector<LoadingFlag> usedLoadingFlags = {Complete, NoSupport,
+                                                 LifoNoSequence};
 
-        constexpr size_t reservedSize = 1000;
-        for (const auto flag: usedLoadingFlags)
-        {
-            mFeasSequences[flag & Parameters.LoadingProblem.LoadingFlags].reserve(reservedSize);
-            mInfSequences[flag & Parameters.LoadingProblem.LoadingFlags].reserve(reservedSize);
-            mUnkSequences[flag & Parameters.LoadingProblem.LoadingFlags].reserve(reservedSize);
+    constexpr size_t reservedSize = 1000;
+    for (const auto flag : usedLoadingFlags) {
+      mFeasSequences[flag & Parameters.LoadingProblem.LoadingFlags].reserve(
+          reservedSize);
+      mInfSequences[flag & Parameters.LoadingProblem.LoadingFlags].reserve(
+          reservedSize);
+      mUnkSequences[flag & Parameters.LoadingProblem.LoadingFlags].reserve(
+          reservedSize);
 
-            mFeasibleSets[flag & Parameters.LoadingProblem.LoadingFlags].reserve(reservedSize);
-            mInfSets[flag & Parameters.LoadingProblem.LoadingFlags].reserve(reservedSize);
-            mUnknownSets[flag & Parameters.LoadingProblem.LoadingFlags].reserve(reservedSize);
-        }
+      mFeasibleSets[flag & Parameters.LoadingProblem.LoadingFlags].reserve(
+          reservedSize);
+      mInfSets[flag & Parameters.LoadingProblem.LoadingFlags].reserve(
+          reservedSize);
+      mUnknownSets[flag & Parameters.LoadingProblem.LoadingFlags].reserve(
+          reservedSize);
     }
+  }
 
-    [[nodiscard]] std::vector<Cuboid>
-        SelectItems(const Collections::IdVector& nodeIds, std::vector<Group>& nodes, bool reversedDirection) const;
+  [[nodiscard]] std::vector<Cuboid> SelectItems(
+      const Collections::IdVector& nodeIds, std::vector<Group>& nodes,
+      bool reversedDirection) const;
 
-    [[nodiscard]] LoadingStatus PackingHeuristic(PackingType packingType,
-                                                 const Container& container,
-                                                 const Collections::IdVector& stopIds,
-                                                 const std::vector<Cuboid>& items);
+  [[nodiscard]] LoadingStatus PackingHeuristic(
+      PackingType packingType, const Container& container,
+      const Collections::IdVector& stopIds, const std::vector<Cuboid>& items);
 
-    [[nodiscard]] LoadingStatus ConstraintProgrammingSolver(PackingType packingType,
-                                                            const Container& container,
-                                                            const boost::dynamic_bitset<>& set,
-                                                            const Collections::IdVector& stopIds,
-                                                            const std::vector<Cuboid>& items,
-                                                            bool isCallTypeExact,
-                                                            double maxRuntime = std::numeric_limits<double>::max());
+  [[nodiscard]] LoadingStatus ConstraintProgrammingSolver(
+      PackingType packingType, const Container& container,
+      const boost::dynamic_bitset<>& set, const Collections::IdVector& stopIds,
+      const std::vector<Cuboid>& items, bool isCallTypeExact,
+      double maxRuntime = std::numeric_limits<double>::max());
 
-    [[nodiscard]] LoadingStatus ConstraintProgrammingSolverGetPacking(PackingType packingType,
-                                                                      const Container& container,
-                                                                      const Collections::IdVector& stopIds,
-                                                                      std::vector<Cuboid>& items,
-                                                                      double maxRuntime) const;
+  /////////////////////////
+  // Call the python gopt solver
 
-    [[nodiscard]] LoadingStatus HeuristicCompleteCheck(const Container& container,
-                                                       const boost::dynamic_bitset<>& set,
-                                                       const Collections::IdVector& stopIds,
-                                                       const std::vector<Cuboid>& items,
-                                                       double maxRuntime = std::numeric_limits<double>::max());
+  [[nodiscard]] LoadingStatus ConstraintProgrammingSolverPython(
+      PackingType packingType, const Container& container,
+      const boost::dynamic_bitset<>& set, const Collections::IdVector& stopIds,
+      const std::vector<Cuboid>& items, bool isCallTypeExact,
+      double maxRuntime = std::numeric_limits<double>::max());
 
-    void SetBinPackingModel(GRBEnv* env,
-                            std::vector<Container>& containers,
-                            std::vector<Group>& nodes,
-                            const std::string& outputPath = "");
+  ///////////////////////
 
-    [[nodiscard]] int SolveBinPackingApproximation() const;
+  [[nodiscard]] LoadingStatus ConstraintProgrammingSolverGetPacking(
+      PackingType packingType, const Container& container,
+      const Collections::IdVector& stopIds, std::vector<Cuboid>& items,
+      double maxRuntime) const;
 
-    [[nodiscard]] int DetermineMinVehicles(bool enableLifting,
-                                           double liftingThreshold,
-                                           const Container& container,
-                                           const boost::dynamic_bitset<>& nodes,
-                                           double weight,
-                                           double volume) const;
+  [[nodiscard]] LoadingStatus HeuristicCompleteCheck(
+      const Container& container, const boost::dynamic_bitset<>& set,
+      const Collections::IdVector& stopIds, const std::vector<Cuboid>& items,
+      double maxRuntime = std::numeric_limits<double>::max());
 
-    [[nodiscard]] bool CustomerCombinationInfeasible(const boost::dynamic_bitset<>& customersInRoute) const;
-    void AddInfeasibleCombination(const boost::dynamic_bitset<>& customersInRoute);
+  void SetBinPackingModel(GRBEnv* env, std::vector<Container>& containers,
+                          std::vector<Group>& nodes,
+                          const std::string& outputPath = "");
 
-    [[nodiscard]] Collections::SequenceVector GetFeasibleRoutes() const;
-    [[nodiscard]] size_t GetNumberOfFeasibleRoutes() const;
-    [[nodiscard]] size_t GetSizeInfeasibleCombinations() const;
+  [[nodiscard]] int SolveBinPackingApproximation() const;
 
-    void AddFeasibleSequenceFromOutside(const Collections::IdVector& route);
+  [[nodiscard]] int DetermineMinVehicles(bool enableLifting,
+                                         double liftingThreshold,
+                                         const Container& container,
+                                         const boost::dynamic_bitset<>& nodes,
+                                         double weight, double volume) const;
 
-    [[nodiscard]] bool RouteIsInFeasSequences(const Collections::IdVector& route) const;
+  [[nodiscard]] bool CustomerCombinationInfeasible(
+      const boost::dynamic_bitset<>& customersInRoute) const;
+  void AddInfeasibleCombination(
+      const boost::dynamic_bitset<>& customersInRoute);
 
-    void AddSequenceCheckedTwoOpt(const Collections::IdVector& sequence);
+  [[nodiscard]] Collections::SequenceVector GetFeasibleRoutes() const;
+  [[nodiscard]] size_t GetNumberOfFeasibleRoutes() const;
+  [[nodiscard]] size_t GetSizeInfeasibleCombinations() const;
 
-    [[nodiscard]] bool SequenceIsCheckedTwoOpt(const Collections::IdVector& sequence) const;
+  void AddFeasibleSequenceFromOutside(const Collections::IdVector& route);
 
-    [[nodiscard]] boost::dynamic_bitset<> MakeBitset(size_t size, const Collections::IdVector& sequence) const;
+  [[nodiscard]] bool RouteIsInFeasSequences(
+      const Collections::IdVector& route) const;
 
-  private:
-    std::unique_ptr<BinPacking1D> mBinPacking1D;
+  void AddSequenceCheckedTwoOpt(const Collections::IdVector& sequence);
 
-    Collections::SequenceSet mTwoOptCheckedSequences;
+  [[nodiscard]] bool SequenceIsCheckedTwoOpt(
+      const Collections::IdVector& sequence) const;
 
-    Collections::SequenceSet mEPHeurInfSequences;
-    Collections::SequenceVector mCompleteFeasSeq;
+  [[nodiscard]] boost::dynamic_bitset<> MakeBitset(
+      size_t size, const Collections::IdVector& sequence) const;
 
-    /// Set of customer combinations that are infeasible.
-    /// -> There is no path in combination C that respects all constraints
-    /// -> At least 2 vehicles are needed to serve all customers in C
-    std::vector<boost::dynamic_bitset<>> mInfeasibleCustomerCombinations;
+ private:
+  std::unique_ptr<BinPacking1D> mBinPacking1D;
 
-    std::unordered_map<LoadingFlag, std::vector<boost::dynamic_bitset<>>> mFeasibleSets;
-    std::unordered_map<LoadingFlag, Collections::SequenceSet> mFeasSequences;
+  Collections::SequenceSet mTwoOptCheckedSequences;
 
-    std::unordered_map<LoadingFlag, std::vector<boost::dynamic_bitset<>>> mInfSets;
-    std::unordered_map<LoadingFlag, Collections::SequenceSet> mInfSequences;
+  Collections::SequenceSet mEPHeurInfSequences;
+  Collections::SequenceVector mCompleteFeasSeq;
 
-    std::unordered_map<LoadingFlag, std::vector<boost::dynamic_bitset<>>> mUnknownSets;
-    std::unordered_map<LoadingFlag, Collections::SequenceSet> mUnkSequences;
+  /// Set of customer combinations that are infeasible.
+  /// -> There is no path in combination C that respects all constraints
+  /// -> At least 2 vehicles are needed to serve all customers in C
+  std::vector<boost::dynamic_bitset<>> mInfeasibleCustomerCombinations;
 
-    [[nodiscard]] bool SequenceIsHeuristicallyInfeasibleEP(const Collections::IdVector& sequence) const;
-    void AddInfeasibleSequenceEP(const Collections::IdVector& sequence);
+  std::unordered_map<LoadingFlag, std::vector<boost::dynamic_bitset<>>>
+      mFeasibleSets;
+  std::unordered_map<LoadingFlag, Collections::SequenceSet> mFeasSequences;
 
-    void AddFeasibleRoute(const Collections::IdVector& route);
+  std::unordered_map<LoadingFlag, std::vector<boost::dynamic_bitset<>>>
+      mInfSets;
+  std::unordered_map<LoadingFlag, Collections::SequenceSet> mInfSequences;
 
-    [[nodiscard]] bool SequenceIsInfeasibleCP(const Collections::IdVector& sequence, LoadingFlag mask) const;
-    [[nodiscard]] bool SequenceIsUnknownCP(const Collections::IdVector& sequence, LoadingFlag mask) const;
-    [[nodiscard]] bool SequenceIsFeasible(const Collections::IdVector& sequence, LoadingFlag mask) const;
+  std::unordered_map<LoadingFlag, std::vector<boost::dynamic_bitset<>>>
+      mUnknownSets;
+  std::unordered_map<LoadingFlag, Collections::SequenceSet> mUnkSequences;
 
-    [[nodiscard]] bool SetIsInfeasibleCP(const boost::dynamic_bitset<>& set, LoadingFlag mask) const;
-    [[nodiscard]] bool SetIsUnknownCP(const boost::dynamic_bitset<>& set, LoadingFlag mask) const;
-    [[nodiscard]] bool SetIsFeasibleCP(const boost::dynamic_bitset<>& set, LoadingFlag mask) const;
+  [[nodiscard]] bool SequenceIsHeuristicallyInfeasibleEP(
+      const Collections::IdVector& sequence) const;
+  void AddInfeasibleSequenceEP(const Collections::IdVector& sequence);
 
-    [[nodiscard]] LoadingFlag BuildMask(PackingType type) const;
+  void AddFeasibleRoute(const Collections::IdVector& route);
 
-    [[nodiscard]] LoadingStatus GetPrecheckStatusCP(const Collections::IdVector& sequence,
-                                                    const boost::dynamic_bitset<>& set,
-                                                    LoadingFlag mask,
-                                                    bool isCallTypeExact);
+  [[nodiscard]] bool SequenceIsInfeasibleCP(
+      const Collections::IdVector& sequence, LoadingFlag mask) const;
+  [[nodiscard]] bool SequenceIsUnknownCP(const Collections::IdVector& sequence,
+                                         LoadingFlag mask) const;
+  [[nodiscard]] bool SequenceIsFeasible(const Collections::IdVector& sequence,
+                                        LoadingFlag mask) const;
 
-    void AddStatus(const Collections::IdVector& sequence,
-                   const boost::dynamic_bitset<>& set,
-                   LoadingFlag mask,
-                   LoadingStatus status);
+  [[nodiscard]] bool SetIsInfeasibleCP(const boost::dynamic_bitset<>& set,
+                                       LoadingFlag mask) const;
+  [[nodiscard]] bool SetIsUnknownCP(const boost::dynamic_bitset<>& set,
+                                    LoadingFlag mask) const;
+  [[nodiscard]] bool SetIsFeasibleCP(const boost::dynamic_bitset<>& set,
+                                     LoadingFlag mask) const;
 
-    [[nodiscard]] LoadingStatus RunLoadingHeuristic(PackingType packingType,
-                                                    const Container& container [[maybe_unused]],
-                                                    const Collections::IdVector& stopIds [[maybe_unused]],
-                                                    const std::vector<Cuboid>& items [[maybe_unused]]);
+  [[nodiscard]] LoadingFlag BuildMask(PackingType type) const;
 
-    [[nodiscard]] int DetermineMinVehiclesBinPacking(bool enableLifting,
-                                                     double liftingThreshold,
-                                                     const boost::dynamic_bitset<>& nodes,
-                                                     int r,
-                                                     double z) const;
+  [[nodiscard]] LoadingStatus GetPrecheckStatusCP(
+      const Collections::IdVector& sequence, const boost::dynamic_bitset<>& set,
+      LoadingFlag mask, bool isCallTypeExact);
 
-    [[nodiscard]] int ReSolveBinPackingApproximation(const boost::dynamic_bitset<>& selectedGroups) const;
+  void AddStatus(const Collections::IdVector& sequence,
+                 const boost::dynamic_bitset<>& set, LoadingFlag mask,
+                 LoadingStatus status);
+
+  [[nodiscard]] LoadingStatus RunLoadingHeuristic(
+      PackingType packingType, const Container& container [[maybe_unused]],
+      const Collections::IdVector& stopIds [[maybe_unused]],
+      const std::vector<Cuboid>& items [[maybe_unused]]);
+
+  [[nodiscard]] int DetermineMinVehiclesBinPacking(
+      bool enableLifting, double liftingThreshold,
+      const boost::dynamic_bitset<>& nodes, int r, double z) const;
+
+  [[nodiscard]] int ReSolveBinPackingApproximation(
+      const boost::dynamic_bitset<>& selectedGroups) const;
 };
 
-}
+}  // namespace ContainerLoading
