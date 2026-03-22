@@ -203,7 +203,9 @@ LoadingStatus LoadingChecker::HeuristicCompleteCheck(
     return LoadingStatus::FeasOpt;
   }
 
-  auto cpStatus = ConstraintProgrammingSolver(
+  /////////////////////////
+  //////////////////////
+  auto cpStatus = ConstraintProgrammingSolverPython(
       PackingType::Complete, container, set, stopIds, items, false, maxRuntime);
 
   return cpStatus;
