@@ -6,6 +6,8 @@
 #include <pybind11/embed.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
+#include <filesystem>
 namespace py = pybind11;
 
 static std::unique_ptr<py::scoped_interpreter> guard;
@@ -17,8 +19,22 @@ void LoadingChecker::init_python_interpreter() {
     guard = std::make_unique<py::scoped_interpreter>();
 
     py::module_ sys = py::module_::import("sys");
-    sys.attr("path").attr("append")("/home/kjyng/3l-cvrp-gopt/gopt");
-    sys.attr("path").attr("append")("/home/kjyng/3l-cvrp-gopt");
+    // sys.attr("path").attr("append")("/home/kjyng/3l-cvrp-gopt/gopt");
+    // sys.attr("path").attr("append")("/home/kjyng/3l-cvrp-gopt");
+
+    std::filesystem::path src_path = std::filesystem::absolute(__FILE__);
+
+    std::filesystem::path project_root = src_path.parent_path()
+                                             .parent_path()
+                                             .parent_path()
+                                             .parent_path()
+                                             .parent_path();  // 3l-cvrp-gopt
+
+    std::string root_dir = project_root.string();
+    std::string gopt_dir = (project_root / "gopt").string();
+
+    sys.attr("path").attr("append")(gopt_dir);
+    sys.attr("path").attr("append")(root_dir);
   }
 }
 

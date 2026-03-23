@@ -37,8 +37,8 @@ def initialize():
     # args.ckp = "learned_model/policy_step_best7.pth"
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    cvrp_file = os.path.join(current_dir, "3L_CVRP", "3l_cvrp01.txt")
-    args.ckp = os.path.join(current_dir, "learned_model", "policy_step_best7.pth")
+    cvrp_file = os.path.join(current_dir, "3L_CVRP", "3l_cvrp03.txt")
+    args.ckp = os.path.join(current_dir, "learned_model", "policy_step_best0310.pth")
 
     parser = CVRPParser(cvrp_file)
     veh_info = parser.vehicle_info
