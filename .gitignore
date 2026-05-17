@@ -6,6 +6,7 @@ data/output/3l-cvrp/test/
 
 # python
 python/visualization/__pycache__/
+gopt/__pycache__/
 python/.venv/
 # ruff
 .ruff_cache
