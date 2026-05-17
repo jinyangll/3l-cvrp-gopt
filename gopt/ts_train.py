@@ -193,7 +193,7 @@ def train(args):
     else:
         raise NotImplementedError
 
-    log_path = './logs/' + time_str
+    log_path = os.path.join(os.getcwd(), "logs", time_str)
     
     is_debug = True if sys.gettrace() else False
     if not is_debug:

@@ -29,9 +29,14 @@ def get_args():
     
     args, unknown = parser.parse_known_args()
 
-    # 예외 처리(try-except) 제거 및 바로 할당
     if not os.path.isabs(args.config):
-        args.config = os.path.join(curr_path, args.config)
+        args.config = os.path.normpath(os.path.join(curr_path, args.config))
+
+    if not os.path.isabs(args.data_dir):
+        args.data_dir = os.path.normpath(os.path.join(curr_path, args.data_dir))
+
+    if args.ckp and not os.path.isabs(args.ckp):
+        args.ckp = os.path.normpath(os.path.join(curr_path, args.ckp))
         
     cfg = OmegaConf.load(args.config)
     

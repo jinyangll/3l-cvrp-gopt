@@ -46,4 +46,3 @@ model:
   num_layers: 3
   forward_expansion: 2
   dropout: 0
-

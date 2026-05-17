@@ -17,12 +17,12 @@ env:
 train:
   algo: PPO
   clip_param: 0.3
-  num_processes: 64    # the number of subprogresses, if debug, set to 1
-  num_steps: 5
-  epoch: 1000
+  num_processes: 32    # the number of subprogresses, if debug, set to 1
+  num_steps: 128
+  epoch: 500
   last_epoch: 200  
   batch_size: 512  
-  step_per_epoch: 10000        # 2**15
+  step_per_epoch: 20000        # 2**15
   repeat_per_collect: 1
   gae_lambda: 0.96
   reward_type:            # optional: "terminal", None
@@ -46,4 +46,3 @@ model:
   num_layers: 3
   forward_expansion: 2
   dropout: 0
-

@@ -2,8 +2,7 @@ import numpy as np
 import copy
 import torch
 import random
-# cvrp_utils.py가 같은 폴더에 있어야 합니다.
-from cvrp_utils import CVRPParser, generate_random_routes, get_items_for_route_reversed
+from cvrp_utils import CVRPParser, generate_random_routes, get_items_for_route_reversed, generate_saving_routes
 
 
 class BoxCreator(object):
@@ -86,41 +85,61 @@ class LoadBoxCreator(BoxCreator):
 class CVRPBoxCreator(BoxCreator):
     def __init__(self, cvrp_parsers: list):
         super().__init__()
-        self.parsers = cvrp_parsers # 리스트로 저장
-        self.parser = None # 현재 에피소드에서 사용할 파서
+        self.parsers = cvrp_parsers # 로드된 모든 텍스트 파일 파서 리스트
+        self.parser = None          # 현재 선택된 파서
+        
+        # 순차적 학습을 위한 상태 변수
+        self.current_route_set = [] # 현재 파일에서 생성된 전체 차량 경로들의 리스트
+        self.route_index = 0        # 현재 세트에서 몇 번째 경로(차량)를 학습 중인지 인덱스
+        
         self.node_items = [] 
         self.current_node_idx = 0
+        self.current_route = []
+        self.total_route_items = 0
         
     def reset(self):
-        self.node_items = []
-        self.current_node_idx = 0
-        
-        # 유효한 경로가 생성될 때까지 파서를 다시 무작위로 뽑으며 반복
-        route_sets = []
-        while not route_sets:
+        while True:
             self.parser = random.choice(self.parsers)
-            route_sets = generate_random_routes(self.parser, 1) 
+            # 1. Savings + Two-opt로 꽉 채워진 최소 경로 세트 생성
+            optimized_routes = generate_saving_routes(self.parser)
             
-        vehicle_routes = route_sets[0]
-        
-        valid_routes = [r for r in vehicle_routes if len(r) > 0]
-        if not valid_routes:
-            target_route = []
-        else:
-            target_route = random.choice(valid_routes)
-
-        self.current_route = target_route
-        self.total_route_items = 0 # 해당 경로의 총 아이템 개수 누적
+            max_k = self.parser.vehicle_info.get('count', 5)
             
-        for node_id in reversed(target_route):
-            items_in_node = self.parser.items.get(node_id, [])
-            if items_in_node:
-                self.node_items.append(list(items_in_node)) 
-                self.total_route_items += len(items_in_node)
-        
-        if not self.node_items:
-             self.node_items = [[(0, 0, 0)]]
-             self.total_route_items = 0
+            # 2. 차량 대수 초과 시 스킵 (요청하신 에피소드 종료 로직)
+            if len(optimized_routes) > max_k:
+                # print(f"!!! [Capacity Exceeded] Instance {self.parser.filepath} needs {len(optimized_routes)} vehicles. Skipping...")
+                continue 
+                
+            # 3. 유효한 경로 세트 저장 및 차량 대수 패딩
+            self.current_route_set = [r for r in optimized_routes if len(r) > 0]
+            while len(self.current_route_set) < max_k:
+                self.current_route_set.append([])
+                
+            # --- [추가 필사 로직] ---
+            # 4. 첫 번째 경로(차량)를 선택하여 실제 적재할 아이템 로드
+            self.route_index = 0
+            valid_routes = [r for r in self.current_route_set if len(r) > 0]
+            self.current_route = random.choice(valid_routes)
+            
+            self.node_items = []
+            self.current_node_idx = 0
+            self.total_route_items = 0
+            
+            # LIFO를 위해 경로 역순으로 노드 방문
+            for node_id in reversed(self.current_route):
+                items_in_node = self.parser.items.get(node_id, [])
+                if items_in_node:
+                    self.node_items.append(list(items_in_node))
+                    self.total_route_items += len(items_in_node)
+            
+            # 빈 경로인 경우 방어 코드
+            if not self.node_items:
+                self.node_items = [[(0, 0, 0)]]
+                self.total_route_items = 0
+                
+            break # 세팅 완료
+                
+        self.route_index = 0
              
     def preview(self, length=3):
         """ [수정] 한 스텝에서 볼 수 있는 후보 아이템 반환. 현재 노드의 아이템만 반환하며, 

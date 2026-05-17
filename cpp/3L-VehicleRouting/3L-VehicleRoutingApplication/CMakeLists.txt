@@ -51,6 +51,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE VehicleRouting ContainerLoading Co
 
 #python
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+set(Python3_EXECUTABLE /home/kjyng/miniconda3/envs/3l-cvrp-gopt/bin/python)
 target_link_libraries(${PROJECT_NAME} PRIVATE Python3::Python)
 
 # pybind11
