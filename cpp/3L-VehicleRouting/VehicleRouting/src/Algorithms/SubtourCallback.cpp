@@ -10,6 +10,7 @@
 #include "Algorithms/LoadingInterfaceServices.h"
 #include "Algorithms/LoadingStatus.h"
 #include "CommonBasics/Helper/ModelServices.h"
+#include "nlohmann/json.hpp"
 
 namespace VehicleRouting {
 using namespace Helper;
@@ -17,6 +18,25 @@ using namespace Helper;
 namespace Algorithms {
 using namespace Cuts;
 using namespace Heuristics::Improvement;
+
+void SubtourCallback::SaveFeasibleAndPotentiallyExcludedRoutes() const {
+  const auto allRoutes = mLoadingChecker->GetFeasibleRoutesWithTimeStamps();
+  const auto allTournamentTailConstraints =
+      mLoadingChecker->GetTailTournamentConstraints();
+
+  nlohmann::json jsonObj;
+  jsonObj["AllFeasibleRoutes"] = allRoutes;
+  jsonObj["AllTournamentTailConstraints"] = allTournamentTailConstraints;
+
+  std::ofstream outputFile;
+  outputFile.open(mOutputPath + "/Routes_" + mInstance->Name + ".json");
+  if (outputFile.is_open()) {
+    outputFile << jsonObj.dump();
+    outputFile.close();
+  } else {
+    std::cerr << "unable to open the route file!\n ";
+  }
+}
 
 void SubtourCallback::callback() {
   try {
@@ -464,20 +484,24 @@ void SubtourCallback::AddCuts(const std::vector<Cut>& cuts) {
     auto lhs = ConstructLHS(cut.Arcs);
 
     if (cut.Type == CutType::RCC) {
+      // Since we are separating cuts in fractional solutions, it is appropriate
+      // to add them using AddCut. In fact, we also exclude integer solutions
+      // with our cuts, which is why we use the AddLazy method. See also:
+      // https://support.gurobi.com/hc/en-us/community/posts/32481416745745-Ignored-lazy-constraint-leads-to-wrong-solution-cont
       if (mCurrentNode == 0) {
-        this->addCut(lhs >= cut.RHS);
+        this->addLazy(lhs >= cut.RHS);  // addCut
         CallbackTracker.CutCounter[cut.Type]++;
       } else {
         if (cut.Violation >= mInputParameters->UserCut.MaxViolationCutLazy) {
           this->addLazy(lhs >= cut.RHS);
           CallbackTracker.LazyConstraintCounter[cut.Type]++;
         } else {
-          this->addCut(lhs >= cut.RHS);
+          this->addLazy(lhs >= cut.RHS);  // addCut
           CallbackTracker.CutCounter[cut.Type]++;
         }
       }
     } else {
-      this->addCut(lhs >= cut.RHS);
+      this->addLazy(lhs >= cut.RHS);  // addCut
       CallbackTracker.CutCounter[cut.Type]++;
     }
   }
@@ -574,10 +598,14 @@ bool SubtourCallback1D::CheckRoutes() {
     CallbackTracker.UpdateElement(CallbackElement::MinNumVehicles,
                                   mClock.elapsed());
 
-    if (subtour.ConnectedToDepot && minVehicles < 2) {
-      mLoadingChecker->AddFeasibleSequenceFromOutside(subtour.Sequence);
+    if (subtour.ConnectedToDepot) {
+      CallbackTracker.Counter[CallbackElement::Connected]++;
 
-      continue;
+      if (minVehicles < 2) {
+        mLoadingChecker->AddFeasibleSequenceFromOutside(subtour.Sequence);
+
+        continue;
+      }
     }
 
     mClock.start();
@@ -585,10 +613,14 @@ bool SubtourCallback1D::CheckRoutes() {
         CutType::SEC, subtour.Sequence, minVehicles)});
     cutAdded = true;
     mClock.end();
-    CallbackTracker.UpdateElement(CallbackElement::MinVehApproxInf,
-                                  mClock.elapsed());
 
-    cutAdded = true;
+    if (subtour.ConnectedToDepot) {
+      CallbackTracker.UpdateElement(CallbackElement::MinVehApproxInf,
+                                    mClock.elapsed());
+    } else {
+      CallbackTracker.UpdateElement(CallbackElement::Disconnected,
+                                    mClock.elapsed());
+    }
   }
 
   return !cutAdded;
@@ -782,7 +814,7 @@ LoadingStatus SubtourCallback3DAllSimple::CheckRouteExact(
   double maxRuntime = mInputParameters->DetermineMaxRuntime(
       BranchAndCutParams::CallType::Exact);
 
-  auto exactStatus = mLoadingChecker->ConstraintProgrammingSolverPython(
+  auto exactStatus = mLoadingChecker->ConstraintProgrammingSolver(
       PackingType::Complete, container, subtour.CustomersInRoute,
       subtour.Sequence, items,
       mInputParameters->IsExact(BranchAndCutParams::CallType::Exact),
@@ -872,7 +904,7 @@ LoadingStatus SubtourCallback3DAll::CheckRouteExact(
   mClock.start();
   double maxRuntimeExactLimit = mInputParameters->DetermineMaxRuntime(
       BranchAndCutParams::CallType::ExactLimit);
-  auto exactStatus = mLoadingChecker->ConstraintProgrammingSolverPython(
+  auto exactStatus = mLoadingChecker->ConstraintProgrammingSolver(
       PackingType::Complete, container, subtour.CustomersInRoute,
       subtour.Sequence, items,
       mInputParameters->IsExact(BranchAndCutParams::CallType::ExactLimit),
@@ -918,7 +950,7 @@ LoadingStatus SubtourCallback3DAll::CheckRouteExact(
     double maxRuntime = mInputParameters->DetermineMaxRuntime(
         BranchAndCutParams::CallType::Exact, residualTime);
 
-    exactStatus = mLoadingChecker->ConstraintProgrammingSolverPython(
+    exactStatus = mLoadingChecker->ConstraintProgrammingSolver(
         PackingType::Complete, container, subtour.CustomersInRoute,
         subtour.Sequence, items,
         mInputParameters->IsExact(BranchAndCutParams::CallType::Exact),
@@ -956,6 +988,10 @@ LoadingStatus SubtourCallback3DAll::CheckRouteExact(
   mClock.end();
   CallbackTracker.UpdateElement(CallbackElement::TailPathInequality,
                                 mClock.elapsed());
+
+  if (mInputParameters->BranchAndCut.TrackIncrementalFeasibilityProperty) {
+    mLoadingChecker->AddTailTournamentConstraint(subtour.Sequence);
+  }
 
   // Check reverse path to
   //   - create new feasible route, or
@@ -1006,7 +1042,7 @@ LoadingStatus SubtourCallback3DNoSupport::CheckRouteExact(
   mClock.start();
   double maxRuntimeExactLimit = mInputParameters->DetermineMaxRuntime(
       BranchAndCutParams::CallType::ExactLimit);
-  auto exactStatus = mLoadingChecker->ConstraintProgrammingSolverPython(
+  auto exactStatus = mLoadingChecker->ConstraintProgrammingSolver(
       PackingType::Complete, container, subtour.CustomersInRoute,
       subtour.Sequence, items,
       mInputParameters->IsExact(BranchAndCutParams::CallType::ExactLimit),
@@ -1051,7 +1087,7 @@ LoadingStatus SubtourCallback3DNoSupport::CheckRouteExact(
     double maxRuntime = mInputParameters->DetermineMaxRuntime(
         BranchAndCutParams::CallType::Exact, residualTime);
 
-    exactStatus = mLoadingChecker->ConstraintProgrammingSolverPython(
+    exactStatus = mLoadingChecker->ConstraintProgrammingSolver(
         PackingType::Complete, container, subtour.CustomersInRoute,
         subtour.Sequence, items,
         mInputParameters->IsExact(BranchAndCutParams::CallType::Exact),
@@ -1146,7 +1182,7 @@ LoadingStatus SubtourCallback3DNoLIFO::CheckRouteExact(
   double maxRuntime =
       mInputParameters->DetermineMaxRuntime(callType, residualTime);
 
-  auto exactStatus = mLoadingChecker->ConstraintProgrammingSolverPython(
+  auto exactStatus = mLoadingChecker->ConstraintProgrammingSolver(
       PackingType::Complete, container, subtour.CustomersInRoute,
       subtour.Sequence, items, mInputParameters->IsExact(callType), maxRuntime);
 
@@ -1228,7 +1264,7 @@ LoadingStatus SubtourCallback3DLoadingOnly::CheckRouteExact(
   double maxRuntime =
       mInputParameters->DetermineMaxRuntime(callType, residualTime);
 
-  auto exactStatus = mLoadingChecker->ConstraintProgrammingSolverPython(
+  auto exactStatus = mLoadingChecker->ConstraintProgrammingSolver(
       PackingType::Complete, container, subtour.CustomersInRoute,
       subtour.Sequence, items, mInputParameters->IsExact(callType), maxRuntime);
 

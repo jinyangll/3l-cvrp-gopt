@@ -9,7 +9,7 @@
 
 namespace VehicleRouting
 {
-namespace Algorithms
+namespace Model
 {
 
 NLOHMANN_JSON_SERIALIZE_ENUM(CallbackElement,
@@ -33,9 +33,9 @@ NLOHMANN_JSON_SERIALIZE_ENUM(CallbackElement,
                               {CallbackElement::CPCheck, "CPCheck"},
                               {CallbackElement::TwoPathInequality, "TwoPath"},
                               {CallbackElement::TwoPathInequalityNot, "TwoPathNot"},
-                              {CallbackElement::RegularPathInequality, "RegPath"},
-                              {CallbackElement::RegularPathInequalityNot, "RegPathNot"},
-                              {CallbackElement::TailPathInequality, "TailPath"},
+                              {CallbackElement::RegularPathInequality, "RegTournamentPath"},
+                              {CallbackElement::RegularPathInequalityNot, "RegTournamentPathNot"},
+                              {CallbackElement::TailPathInequality, "TailTournamentPath"},
                               {CallbackElement::ExactLimitFeas, "ExactLimitFeas"},
                               {CallbackElement::ExactLimitInf, "ExactLimitInf"},
                               {CallbackElement::ExactLimitUnk, "ExactLimitUnk"},
@@ -51,6 +51,13 @@ NLOHMANN_JSON_SERIALIZE_ENUM(CallbackElement,
                               {CallbackElement::BuildGraph, "BuildGraph"},
                               {CallbackElement::InfeasibleTailPathInequality, "InfTailPath"},
                               {CallbackElement::SPHeuristic, "SPHeur"}});
+}
+}
+
+namespace VehicleRouting
+{
+namespace Algorithms
+{
 
 NLOHMANN_JSON_SERIALIZE_ENUM(CutType,
                              {{CutType::None, "None"},
@@ -191,6 +198,7 @@ void from_json(const json& j, BranchAndCutParams& params)
     j.at("ActivateHeuristic").get_to(params.ActivateHeuristic);
     j.at("ActivateMemoryManagement").get_to(params.ActivateMemoryManagement);
     j.at("SimpleVersion").get_to(params.SimpleVersion);
+    j.at("TrackIncrementalFeasibilityProperty").get_to(params.TrackIncrementalFeasibilityProperty);
 }
 
 void to_json(json& j, const BranchAndCutParams& params)
@@ -208,7 +216,8 @@ void to_json(json& j, const BranchAndCutParams& params)
              {"TimeLimit", params.TimeLimits},
              {"ActivateHeuristic", params.ActivateHeuristic},
              {"ActivateMemoryManagement", params.ActivateMemoryManagement},
-             {"SimpleVersion", params.SimpleVersion}};
+             {"SimpleVersion", params.SimpleVersion},
+             {"TrackIncrementalFeasibilityProperty", params.TrackIncrementalFeasibilityProperty}};
 }
 
 void from_json(const json& j, UserCutParams& params)

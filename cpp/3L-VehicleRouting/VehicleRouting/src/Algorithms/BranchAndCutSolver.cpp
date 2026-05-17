@@ -96,49 +96,6 @@ void BranchAndCutSolver::TestProcedure() {
   if (!IsSet(mask, LoadingFlag::Sequence)) {
     mLogFile << "No Sequence";
   }
-
-  /*
-  std::vector<int> sequence = {12, 11, 13, 8, 5, 4, 21};
-  std::vector<Group> nodes;
-  for (int id = 0; id < VRPInstance->Nodes.size(); ++id)
-  {
-      nodes.emplace_back(VRPInstance->Nodes[id]);
-  }
-
-  for (int i = 0; i < 1000; ++i)
-  {
-      auto items = mLoadingChecker->SelectItems(sequence, nodes, false);
-
-      auto status = mLoadingChecker->ConstraintProgrammingSolver(
-          PackingType::NoSupportNoSequenceNoFragility,
-          VRPInstance->Vehicles.front().Containers.front(),
-          sequence,
-          items,
-          CPPackingParams::Type::TwoPath);
-      mLogFile << (int)status << "\n";
-  }
-
-  std::vector<int> sequence = {6, 11, 19, 10, 12, 16};
-
-  std::vector<Group> nodes;
-  for (int id = 0; id < VRPInstance->Nodes.size(); ++id)
-  {
-      nodes.emplace_back(VRPInstance->Nodes[id]);
-  }
-
-  auto items = mLoadingChecker->SelectItems(sequence, nodes, false);
-
-  for (int i = 0; i < 0; ++i)
-  {
-      auto status = mLoadingChecker->ConstraintProgrammingSolver(
-          PackingType::NoSupportNoSequenceNoFragility,
-          VRPInstance->Vehicles.front().Containers.front(),
-          sequence.size(),
-          items,
-          CPPackingParams::Type::TwoPath);
-      mLogFile << "Status" << (int)status << "\n";
-  }
-  */
 }
 
 void BranchAndCutSolver::Preprocessing() {
@@ -644,7 +601,17 @@ bool BranchAndCutSolver::CheckPath(const Collections::IdVector& path,
       mInputParameters.IsExact(BranchAndCutParams::CallType::Exact));
 
   if (statusComplete == LoadingStatus::Infeasible) {
-    mInfeasibleTailPaths.emplace_back(0, path.front(), path.back());
+    if (mInputParameters.ContainerLoading.LoadingProblem.Variant ==
+        CLP::LoadingProblemParams::VariantType::NoLifo) {
+      mInfeasibleTailPaths.emplace_back(std::vector{
+          Arc(0, 0, path.front()), Arc(0, path.front(), path.back())});
+    } else {
+      mInfeasibleTailPaths.emplace_back(
+          std::vector{Arc(0, path.front(), path.back())});
+    }
+
+    Collections::IdVector sequence = {path.front(), path.back()};
+    mLoadingChecker->AddTailTournamentConstraint(sequence);
   }
 
   return true;
@@ -663,9 +630,11 @@ void BranchAndCutSolver::DetermineExtendedInfeasiblePath() {
 
   std::vector<Arc> tailPathToDelete;
 
-  for (auto& arc : mInfeasibleTailPaths) {
-    const auto& nodeI = nodes[arc.Tail];
-    const auto& nodeJ = nodes[arc.Head];
+  for (auto& arcVector : mInfeasibleTailPaths) {
+    auto& lastArc = arcVector.back();
+
+    const auto& nodeI = nodes[lastArc.Tail];
+    const auto& nodeJ = nodes[lastArc.Head];
 
     auto weight = nodeI.TotalWeight + nodeJ.TotalWeight;
     auto volume = nodeI.TotalVolume + nodeJ.TotalVolume;
@@ -717,13 +686,15 @@ void BranchAndCutSolver::DetermineExtendedInfeasiblePath() {
     }
 
     mInfeasibleArcs.emplace_back(0.0, nodeI.InternId, nodeJ.InternId);
-    tailPathToDelete.emplace_back(arc);
+    tailPathToDelete.emplace_back(lastArc);
   }
 
   for (const auto& path : tailPathToDelete) {
-    std::erase_if(mInfeasibleTailPaths, [path](Arc& arc) {
-      return path.Head == arc.Head && path.Tail == arc.Tail;
-    });
+    std::erase_if(
+        mInfeasibleTailPaths, [&path](const std::vector<Arc>& arcPath) {
+          return !arcPath.empty() && arcPath.back().Head == path.Head &&
+                 arcPath.back().Tail == path.Tail;
+        });
   }
 }
 
@@ -850,6 +821,10 @@ void BranchAndCutSolver::Solve() {
   branchAndCut.Solve(mInputParameters.MIPSolver);
 
   mTimer.BranchAndCut = std::chrono::system_clock::now() - start;
+
+  if (mInputParameters.BranchAndCut.TrackIncrementalFeasibilityProperty) {
+    callback->SaveFeasibleAndPotentiallyExcludedRoutes();
+  }
 
   auto statistics = SolverStatistics(
       branchAndCut.GetRuntime(), branchAndCut.GetMIPGap(),

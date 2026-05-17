@@ -327,6 +327,18 @@ void LoadingChecker::AddFeasibleSequenceFromOutside(
     const Collections::IdVector& route) {
   AddFeasibleRoute(route);
 }
+double LoadingChecker::GetElapsedTime() {
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> elapsed = end - mStartTime;
+  return elapsed.count();
+}
+
+void LoadingChecker::AddFeasibleRoute(const Collections::IdVector& route) {
+  mFeasSequences[Parameters.LoadingProblem.LoadingFlags].insert(route);
+  mCompleteFeasSeq.push_back(route);
+  double elapsedAsDouble = GetElapsedTime();
+  mCompleteFeasSeqWithTimeStamps.insert({elapsedAsDouble, route});
+}
 
 bool LoadingChecker::RouteIsInFeasSequences(
     const Collections::IdVector& route) const {
@@ -353,11 +365,6 @@ boost::dynamic_bitset<> LoadingChecker::MakeBitset(
 
   return set;
 };
-
-void LoadingChecker::AddFeasibleRoute(const Collections::IdVector& route) {
-  mFeasSequences[Parameters.LoadingProblem.LoadingFlags].insert(route);
-  mCompleteFeasSeq.push_back(route);
-}
 
 void LoadingChecker::AddInfeasibleSequenceEP(
     const Collections::IdVector& sequence) {
@@ -394,8 +401,8 @@ bool LoadingChecker::SetIsInfeasibleCP(const boost::dynamic_bitset<>& set,
       return true;
     }
   } else {
-    // If support is enabled, only exact matching of sets can be used as adding
-    // additional items can lead to feasibility.
+    // If support is enabled, only exact matching of sets can be used as
+    // adding additional items can lead to feasibility.
     auto setComparer =
         [set](const boost::dynamic_bitset<>& feasibleCombination) {
           return set == feasibleCombination;

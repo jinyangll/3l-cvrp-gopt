@@ -157,7 +157,8 @@ class PlacementPointGenerator
         std::vector<Cuboid>& items,
         Axis axis,
         std::vector<std::vector<int>>& itemSpecificModifiedItemDimensions,
-        std::vector<boost::dynamic_bitset<>>& itemSpecificPlacementPointsRightPrime,
+        const std::vector<boost::dynamic_bitset<>>& itemSpecificPlacementPointsLeft,
+        std::vector<boost::dynamic_bitset<>>& itemSpecificPlacementPointsRight,
         const std::vector<boost::dynamic_bitset<>>& preliminaryItemSpecificMeetInTheMiddleSets);
 
     static void RemoveRedundantPatterns(std::vector<Cuboid>& items,
@@ -180,7 +181,7 @@ class PlacementPointGenerator
         ConvertPlacementBitsetToVector(const ItemPlacementPatternsBitset& itemSpecificPatternBitset);
 
     ////static std::vector<int64> DetermineStartPointsFlatSpan(const std::vector<int64>& patterns); // Keep for
-    ///reference.
+    /// reference.
     static std::vector<int64>
         DetermineEndPoints(const std::vector<int64>& patterns, int dim, int rotDim, bool enableRotation);
 

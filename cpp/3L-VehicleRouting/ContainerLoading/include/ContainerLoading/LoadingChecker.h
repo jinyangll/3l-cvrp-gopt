@@ -2,6 +2,7 @@
 
 #include <boost/dynamic_bitset.hpp>
 #include <boost/functional/hash.hpp>
+#include <chrono>
 
 #include "Algorithms/MultiContainer/BP_MIP_1D.h"
 #include "CommonBasics/Helper/ModelServices.h"
@@ -39,6 +40,8 @@ class LoadingChecker {
       mUnknownSets[flag & Parameters.LoadingProblem.LoadingFlags].reserve(
           reservedSize);
     }
+
+    mStartTime = std::chrono::high_resolution_clock::now();
   }
 
   [[nodiscard]] std::vector<Cuboid> SelectItems(
@@ -80,6 +83,8 @@ class LoadingChecker {
                           std::vector<Group>& nodes,
                           const std::string& outputPath = "");
 
+  [[nodiscard]] double GetElapsedTime();
+
   [[nodiscard]] int SolveBinPackingApproximation() const;
 
   [[nodiscard]] int DetermineMinVehicles(bool enableLifting,
@@ -90,6 +95,7 @@ class LoadingChecker {
 
   [[nodiscard]] bool CustomerCombinationInfeasible(
       const boost::dynamic_bitset<>& customersInRoute) const;
+
   void AddInfeasibleCombination(
       const boost::dynamic_bitset<>& customersInRoute);
 
@@ -103,14 +109,34 @@ class LoadingChecker {
       const Collections::IdVector& route) const;
 
   void AddSequenceCheckedTwoOpt(const Collections::IdVector& sequence);
+  [[nodiscard]] std::unordered_map<double, Collections::IdVector>
+  GetFeasibleRoutesWithTimeStamps() {
+    return mCompleteFeasSeqWithTimeStamps;
+  };
 
-  [[nodiscard]] bool SequenceIsCheckedTwoOpt(
-      const Collections::IdVector& sequence) const;
+  void AddTailTournamentConstraint(const Collections::IdVector& sequence) {
+    auto elapsed = GetElapsedTime();
+    mTailTournamentConstraintsWithTimeStamps.insert({elapsed, sequence});
+  }
+  [[nodiscard]] std::unordered_map<double, Collections::IdVector>
+  GetTailTournamentConstraints() const {
+    return mTailTournamentConstraintsWithTimeStamps;
+  }
 
   [[nodiscard]] boost::dynamic_bitset<> MakeBitset(
       size_t size, const Collections::IdVector& sequence) const;
 
+  [[nodiscard]] bool SequenceIsCheckedTwoOpt(
+      const Collections::IdVector& sequence) const;
+      
  private:
+  std::chrono::high_resolution_clock::time_point mStartTime;
+
+  std::unordered_map<double, Collections::IdVector>
+      mCompleteFeasSeqWithTimeStamps;
+  std::unordered_map<double, Collections::IdVector>
+      mTailTournamentConstraintsWithTimeStamps;
+
   std::unique_ptr<BinPacking1D> mBinPacking1D;
 
   Collections::SequenceSet mTwoOptCheckedSequences;

@@ -109,20 +109,15 @@ std::optional<Cut> FCI::CreateCut(CnstrPointer constraint, const std::vector<std
     {
         for (const auto j: notInFrame)
         {
-            cut.AddArc(0.5, i, j, x[i][j]);
-            cut.AddArc(0.5, j, i, x[j][i]);
+            cut.AddArc(1, i, j, x[i][j]);
+            cut.AddArc(1, j, i, x[j][i]);
         }
     }
 
-    // Inside form for partitions
+    // Cut set of partitions
     int liftRHS = 0;
     for (const auto& partition: partitions)
     {
-        if (partition.Nodes.size() == 1)
-        {
-            continue;
-        }
-
         int r = mLoadingChecker->DetermineMinVehicles(InputParameters->BranchAndCut.EnableMinVehicleLifting,
                                                       InputParameters->BranchAndCut.MinVehicleLiftingThreshold,
                                                       container,
@@ -136,19 +131,23 @@ std::optional<Cut> FCI::CreateCut(CnstrPointer constraint, const std::vector<std
         int lifting = std::max(0, r - minVehiclesWeight);
         liftRHS += lifting;
 
-        for (size_t iNode = 0; iNode < partition.Nodes.size() - 1; ++iNode)
+        for (size_t iNode = 0; iNode < partition.Nodes.size(); ++iNode)
         {
             auto i = partition.Nodes[iNode];
-            for (size_t jNode = iNode + 1; jNode < partition.Nodes.size(); ++jNode)
+            for (size_t j = 0; j < Instance->Nodes.size(); ++j)
             {
-                auto j = partition.Nodes[jNode];
-                cut.AddArc(-1.0, i, j, x[i][j]);
-                cut.AddArc(-1.0, j, i, x[j][i]);
+                if (partition.NodesInSet[j])
+                {
+                    continue;
+                }
+
+                cut.AddArc(1.0, i, j, x[i][j]);
+                cut.AddArc(1.0, j, i, x[j][i]);
             }
         }
     }
 
-    cut.RHS = (constraint->RHS + liftRHS) / 2.0 - frame.size();
+    cut.RHS = constraint->RHS + 2 * liftRHS;
     cut.CalcViolation();
 
     if (cut.Violation <= InputParameters->UserCut.ViolationThreshold.at(Type))

@@ -7,7 +7,7 @@ namespace Algorithms {
 void TwoIndexVehicleFlow::BuildModel(
     const std::vector<Arc>& startSolutionArcs,
     const std::vector<Arc>& infeasibleArcs,
-    const std::vector<Arc>& infeasibleTailPaths) {
+    const std::vector<std::vector<Arc>>& infeasibleTailPaths) {
   try {
     mModel = std::make_unique<GRBModel>(*mEnv);
 
@@ -101,7 +101,7 @@ void TwoIndexVehicleFlow::SetStartSolution(
 
 void TwoIndexVehicleFlow::SetInfeasibleArcs(
     const std::vector<Arc>& infeasibleArcs,
-    const std::vector<Arc>& infeasibleTailPaths) {
+    const std::vector<std::vector<Arc>>& infeasibleTailPaths) {
   for (auto const& arc : infeasibleArcs) {
     mVariablesX[arc.Tail][arc.Head].set(GRB_DoubleAttr_UB, arc.Coefficient);
 
@@ -109,10 +109,15 @@ void TwoIndexVehicleFlow::SetInfeasibleArcs(
     /// std::to_string(arc.Tail) << "\n";
   }
 
-  for (auto const& arc : infeasibleTailPaths) {
-    mModel->addConstr(mVariablesX[arc.Tail][arc.Head] +
-                          mVariablesX[arc.Head][mInstance->GetDepotId()] <=
-                      1.0);
+  for (auto const& arcVector : infeasibleTailPaths) {
+    GRBLinExpr sumX_ij = 0;
+
+    for (auto const& arc : arcVector) {
+      sumX_ij += mVariablesX[arc.Tail][arc.Head];
+    }
+    sumX_ij += mVariablesX[arcVector.back().Head][0];
+
+    mModel->addConstr(sumX_ij <= arcVector.size());
 
     ////std::cout << "Infeasible path: " << std::to_string(arc.Head) << " -> "
     ///<< std::to_string(arc.Tail) << "\n";

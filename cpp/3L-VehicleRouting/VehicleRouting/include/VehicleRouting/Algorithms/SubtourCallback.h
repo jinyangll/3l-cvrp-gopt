@@ -83,6 +83,8 @@ class SubtourCallback : public GRBCallback
         InitializeCuts();
     }
 
+    void SaveFeasibleAndPotentiallyExcludedRoutes() const;
+
   protected:
     GRBVar2D mVariablesX;
     const Instance* const mInstance;

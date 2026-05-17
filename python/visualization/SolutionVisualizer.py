@@ -340,12 +340,16 @@ def get_solver_statistics_data(solver_statistics):
     )
 
     cut_counter = callback_tracker["CutCounter"]
-    if cut_counter:
-        cut_types, cut_counts = map(list, zip(*cut_counter))
     cut_timer = callback_tracker["CutTimer"]
-    if cut_timer:
-        cut_types, cut_times = map(list, zip(*cut_timer))
-    if cut_counter and cut_timer:
+
+    if cut_timer and cut_counter:
+        cut_time_by_type = dict(cut_timer)
+        cut_count_by_type = dict(cut_counter)
+
+        cut_types = list(cut_time_by_type.keys())
+        cut_counts = [cut_count_by_type.get(cut_type, 0) for cut_type in cut_types]
+        cut_times = [cut_time_by_type[cut_type] for cut_type in cut_types]
+
         solver_statistics_data["CutData"] = pd.DataFrame(
             list(zip(cut_counts, cut_times)), index=cut_types, columns=["Count", "Time"]
         )

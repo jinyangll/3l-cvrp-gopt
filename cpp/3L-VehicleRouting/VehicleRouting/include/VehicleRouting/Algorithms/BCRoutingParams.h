@@ -147,6 +147,7 @@ struct BranchAndCutParams
     bool ActivateHeuristic = false;
     bool ActivateMemoryManagement = false;
     bool SimpleVersion = true;
+    bool TrackIncrementalFeasibilityProperty = false;
 };
 
 class InputParameters

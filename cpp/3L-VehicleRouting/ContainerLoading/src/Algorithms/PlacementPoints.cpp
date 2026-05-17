@@ -404,6 +404,7 @@ std::vector<boost::dynamic_bitset<>>
     DetermineEnlargedItemDimensionsRight(items,
                                          axis,
                                          itemSpecificModifiedItemDimensions,
+                                         itemSpecificPlacementPointsLeft,
                                          itemSpecificPlacementPointsRight,
                                          itemSpecificMeetInTheMiddleSets);
 
@@ -564,6 +565,7 @@ void PlacementPointGenerator::DetermineEnlargedItemDimensionsRight(
     std::vector<Cuboid>& items,
     Axis axis,
     std::vector<std::vector<int>>& itemSpecificModifiedItemDimensions,
+    const std::vector<boost::dynamic_bitset<>>& itemSpecificPlacementPointsLeft,
     std::vector<boost::dynamic_bitset<>>& itemSpecificPlacementPointsRight,
     const std::vector<boost::dynamic_bitset<>>& preliminaryItemSpecificMeetInTheMiddleSets)
 {
@@ -574,6 +576,7 @@ void PlacementPointGenerator::DetermineEnlargedItemDimensionsRight(
 
         std::vector<int>& modifiedItemDimensionsK = itemSpecificModifiedItemDimensions[k];
         boost::dynamic_bitset<>& placementPointsRight = itemSpecificPlacementPointsRight[k];
+        const boost::dynamic_bitset<>& placementPointsLeft = itemSpecificPlacementPointsLeft[k];
         if (placementPointsRight.count() == 0)
             continue;
 
@@ -616,6 +619,18 @@ void PlacementPointGenerator::DetermineEnlargedItemDimensionsRight(
             }
 
             int q = std::max(0, sMax);
+
+            if (placementPointsLeft[q])
+
+            {
+                // q is already part of left placement point set of item k. Enlarging the dimension at point p would
+                // overwrite the existing dimension of q.
+                // E.g. L = { 0 } and R = { 6 } with original item dimension 6.
+                // -> Enlarging the dimension of p = 6 to q = 0 with dimension 12 overwrites the existing point { 0 }
+                // \in L.
+
+                continue;
+            }
 
             if (q < p)
             {
@@ -724,28 +739,28 @@ boost::dynamic_bitset<>
     // formulation.
     int itemDimension = itemI.MinimumRotatableDimension(axis);
 
-    boost::dynamic_bitset<> regularNormalPatterns;
+    boost::dynamic_bitset<> regularNormalPattern;
     switch (axis)
     {
         case Axis::X:
-            regularNormalPatterns = DetermineRegularNormalPatternsX(
+            regularNormalPattern = DetermineRegularNormalPatternsX(
                 container.Dimension(axis) - itemDimension, container.Dimension(axis), items);
             break;
         case Axis::Y:
-            regularNormalPatterns = DetermineRegularNormalPatternsY(
+            regularNormalPattern = DetermineRegularNormalPatternsY(
                 container.Dimension(axis) - itemDimension, container.Dimension(axis), items);
             break;
         case Axis::Z:
-            regularNormalPatterns = DetermineRegularNormalPatternsZ(
+            regularNormalPattern = DetermineRegularNormalPatternsZ(
                 container.Dimension(axis) - itemDimension, container.Dimension(axis), items);
             break;
         default:
             break;
     }
 
-    for (size_t p = 0; p < regularNormalPatterns.size(); p++)
+    for (size_t p = 0; p < regularNormalPattern.size(); p++)
     {
-        if (regularNormalPatterns[p])
+        if (regularNormalPattern[p])
         {
             switch (minimizationTarget)
             {
@@ -763,7 +778,7 @@ boost::dynamic_bitset<>
         }
     }
 
-    return regularNormalPatterns;
+    return regularNormalPattern;
 }
 
 boost::dynamic_bitset<> PlacementPointGenerator::DetermineMeetInTheMiddlePatterns(const Container& container,
