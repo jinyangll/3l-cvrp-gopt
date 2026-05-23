@@ -18,12 +18,15 @@ LazyConstraintsGenerator::TwoPathInequalityLifting(
     Container& container, std::vector<Cuboid>& items) {
   double maxRuntime = mInputParameters->DetermineMaxRuntime(
       BranchAndCutParams::CallType::TwoPath);
-  auto status = mLoadingChecker->ConstraintProgrammingSolverPython(
+
+  ////////////////////////
+  auto status = mLoadingChecker->ConstraintProgrammingSolverPythonNoSeq(
       PackingType::LifoNoSequence, container, set, sequence, items,
       mInputParameters->IsExact(BranchAndCutParams::CallType::TwoPath),
       maxRuntime);
 
   if (status != LoadingStatus::Infeasible) {
+    ///////////////////
     return std::nullopt;
   }
 
@@ -35,7 +38,8 @@ std::optional<std::vector<Cut>> LazyConstraintsGenerator::RegularPathLifting(
     std::vector<Cuboid>& items) {
   double maxRuntime = mInputParameters->DetermineMaxRuntime(
       BranchAndCutParams::CallType::RegularPath);
-  auto status = mLoadingChecker->ConstraintProgrammingSolverPython(
+  /////////////////
+  auto status = mLoadingChecker->ConstraintProgrammingSolverPythonNoSup(
       PackingType::NoSupport, container, boost::dynamic_bitset<>(), sequence,
       items,
       mInputParameters->IsExact(BranchAndCutParams::CallType::RegularPath),
@@ -92,7 +96,9 @@ LazyConstraintsGenerator::DetermineMinimalInfeasibleSubset(
 
     double maxRuntime = mInputParameters->DetermineMaxRuntime(
         BranchAndCutParams::CallType::MinInfSet);
-    auto cpStatus = mLoadingChecker->ConstraintProgrammingSolverPython(
+
+    /////////////////////
+    auto cpStatus = mLoadingChecker->ConstraintProgrammingSolverPythonNoSeq(
         PackingType::LifoNoSequence, container, set, subSet, subSetItems,
         mInputParameters->IsExact(BranchAndCutParams::CallType::MinInfSet),
         maxRuntime);
@@ -149,7 +155,7 @@ LazyConstraintsGenerator::DetermineMinimalInfeasibleSubPath(
 
     double maxRuntime = mInputParameters->DetermineMaxRuntime(
         BranchAndCutParams::CallType::MinInfPath);
-    auto cpStatus = mLoadingChecker->ConstraintProgrammingSolverPython(
+    auto cpStatus = mLoadingChecker->ConstraintProgrammingSolverPythonNoSup(
         PackingType::NoSupport, container,
         mLoadingChecker->MakeBitset(mInstance->Nodes.size(), subPath), subPath,
         items,
