@@ -65,7 +65,7 @@ void BranchAndCutSolver::Initialize() {
     if (heurStatus == LoadingStatus::FeasOpt) {
       continue;
     }
-
+    ///////////////////
     auto exactStatus = mLoadingChecker->ConstraintProgrammingSolverPython(
         PackingType::Complete, containers[0],
         mLoadingChecker->MakeBitset(mInstance->Nodes.size(), route), route,
@@ -74,7 +74,7 @@ void BranchAndCutSolver::Initialize() {
     if (exactStatus != LoadingStatus::FeasOpt) {
       mLogFile << "Single customer route with " << customer.InternId
                << "is infeasible.\n";
-
+      //////////////////
       auto relStatus = mLoadingChecker->ConstraintProgrammingSolverPython(
           PackingType::NoSupport, containers[0],
           mLoadingChecker->MakeBitset(mInstance->Nodes.size(), route), route,
@@ -157,16 +157,21 @@ void BranchAndCutSolver::StartSolutionProcedure() {
 
   std::vector<Route> startRoutes;
 
+  // switch (static_cast<BranchAndCutParams::StartSolutionType>(99)) {
   switch (mInputParameters.BranchAndCut.StartSolution) {
     case None:
+      mLogFile << "## 0 ##\n";
       return;
     case ModifiedSavings:
+      mLogFile << "## 1 ##\n";
       startRoutes = GenerateStartSolution();
       break;
     case Given:
+      mLogFile << "## 2 ##\n";
       startRoutes = SetGivenStartSolution();
       break;
     case HardCoded:
+      mLogFile << "## 3 ##\n";
       startRoutes = SetHardCodedStartSolution();
       break;
     default:
@@ -463,6 +468,7 @@ std::vector<Route> BranchAndCutSolver::SetHardCodedStartSolution() {
     totalTimeHeur += clock.elapsed();
 
     clock.start();
+    //////////////////
     auto exactStatus = mLoadingChecker->ConstraintProgrammingSolverPython(
         PackingType::Complete, container,
         mLoadingChecker->MakeBitset(mInstance->Nodes.size(), sequence),
@@ -583,7 +589,7 @@ bool BranchAndCutSolver::CheckPath(const Collections::IdVector& path,
       return true;
     }
   }
-
+  /////////////////////////////
   auto statusSupportRelaxation =
       mLoadingChecker->ConstraintProgrammingSolverPython(
           PackingType::NoSupport, container,
@@ -594,7 +600,7 @@ bool BranchAndCutSolver::CheckPath(const Collections::IdVector& path,
     mInfeasibleArcs.emplace_back(0, path.front(), path.back());
     return false;
   }
-
+  ///////////////////////////////
   auto statusComplete = mLoadingChecker->ConstraintProgrammingSolverPython(
       PackingType::Complete, container,
       mLoadingChecker->MakeBitset(mInstance->Nodes.size(), path), path, items,
@@ -664,6 +670,7 @@ void BranchAndCutSolver::DetermineExtendedInfeasiblePath() {
             PackingType::Complete, container, path, selectedItems);
       }
 
+      /////////////////////
       if (heuristicStatus == LoadingStatus::Infeasible) {
         auto statusSupportRelaxation =
             mLoadingChecker->ConstraintProgrammingSolverPython(

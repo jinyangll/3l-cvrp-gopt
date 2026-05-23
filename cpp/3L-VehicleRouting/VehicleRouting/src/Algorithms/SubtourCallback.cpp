@@ -778,7 +778,8 @@ void SubtourCallback3D::CheckReversePath(const Collections::IdVector& sequence,
 
   double maxRuntime = mInputParameters->DetermineMaxRuntime(
       BranchAndCutParams::CallType::ReversePath);
-  auto cpStatus = mLoadingChecker->ConstraintProgrammingSolverPython(
+  //////////////////////
+  auto cpStatus = mLoadingChecker->ConstraintProgrammingSolver(
       PackingType::Complete, container, boost::dynamic_bitset<>(),
       reversedSequence, items,
       mInputParameters->IsExact(BranchAndCutParams::CallType::ReversePath),

@@ -40,7 +40,7 @@ void LoadingChecker::init_python_interpreter() {
 
 //////////////////////////////////////
 //////////////////
-// call python gopt checker
+// call python gopt checker - py_checker
 LoadingStatus LoadingChecker::ConstraintProgrammingSolverPython(
     PackingType packingType, const Container& container,
     const boost::dynamic_bitset<>& set, const Collections::IdVector& stopIds,
@@ -72,6 +72,132 @@ LoadingStatus LoadingChecker::ConstraintProgrammingSolverPython(
   LoadingStatus status = LoadingStatus::Infeasible;
   try {
     pythonStatus = checker.attr("check")(stopIds).cast<bool>();
+
+    if (pythonStatus) {
+      status = LoadingStatus::FeasOpt;
+    } else {
+      status = LoadingStatus::Infeasible;
+    }
+
+  } catch (py::error_already_set& e) {
+    // 파이썬에서 Exception -> infeasible 처리
+    std::cerr << "Python Error caught in C++: " << e.what() << std::endl;
+
+    return LoadingStatus::Infeasible;
+  }
+
+  if (status == LoadingStatus::Invalid) {
+    throw std::runtime_error("Loading status invalid in CP model!");
+  }
+
+  if (isCallTypeExact && status == LoadingStatus::Unknown) {
+    return LoadingStatus::Invalid;
+  }
+
+  AddStatus(stopIds, set, loadingMask, status);
+
+  return status;
+}
+
+//////////////////////////////////////
+
+//////////////////////////////////////
+//////////////////
+// call python gopt checker - py_checker
+LoadingStatus LoadingChecker::ConstraintProgrammingSolverPythonNoSeq(
+    PackingType packingType, const Container& container,
+    const boost::dynamic_bitset<>& set, const Collections::IdVector& stopIds,
+    const std::vector<Cuboid>& items, bool isCallTypeExact, double maxRuntime) {
+  if (maxRuntime < 0.0 + 1e-5) {
+    return LoadingStatus::Invalid;
+  }
+
+  auto loadingMask = BuildMask(packingType);
+
+  auto precheckStatus =
+      GetPrecheckStatusCP(stopIds, set, loadingMask, isCallTypeExact);
+  if (precheckStatus != LoadingStatus::Invalid) {
+    return precheckStatus;
+  }
+
+  auto numberStops = stopIds.size();
+  //   auto containerLoadingCP = ContainerLoadingCP(
+  //       Parameters.CPSolver, container, items, numberStops, loadingMask,
+  //       Parameters.LoadingProblem.SupportArea, maxRuntime);
+
+  //   auto status = containerLoadingCP.Solve();
+
+  py::module_ checker = py::module_::import("py_checker_no_seq");
+
+  // route 정보 = node 정보담은 vector = stopIds
+
+  bool pythonStatus = false;
+  LoadingStatus status = LoadingStatus::Infeasible;
+  try {
+    pythonStatus = checker.attr("check_no_seq")(stopIds).cast<bool>();
+
+    if (pythonStatus) {
+      status = LoadingStatus::FeasOpt;
+    } else {
+      status = LoadingStatus::Infeasible;
+    }
+
+  } catch (py::error_already_set& e) {
+    // 파이썬에서 Exception -> infeasible 처리
+    std::cerr << "Python Error caught in C++: " << e.what() << std::endl;
+
+    return LoadingStatus::Infeasible;
+  }
+
+  if (status == LoadingStatus::Invalid) {
+    throw std::runtime_error("Loading status invalid in CP model!");
+  }
+
+  if (isCallTypeExact && status == LoadingStatus::Unknown) {
+    return LoadingStatus::Invalid;
+  }
+
+  AddStatus(stopIds, set, loadingMask, status);
+
+  return status;
+}
+
+//////////////////////////////////////
+
+//////////////////////////////////////
+//////////////////
+// call python gopt checker - py_checker
+LoadingStatus LoadingChecker::ConstraintProgrammingSolverPythonNoSup(
+    PackingType packingType, const Container& container,
+    const boost::dynamic_bitset<>& set, const Collections::IdVector& stopIds,
+    const std::vector<Cuboid>& items, bool isCallTypeExact, double maxRuntime) {
+  if (maxRuntime < 0.0 + 1e-5) {
+    return LoadingStatus::Invalid;
+  }
+
+  auto loadingMask = BuildMask(packingType);
+
+  auto precheckStatus =
+      GetPrecheckStatusCP(stopIds, set, loadingMask, isCallTypeExact);
+  if (precheckStatus != LoadingStatus::Invalid) {
+    return precheckStatus;
+  }
+
+  auto numberStops = stopIds.size();
+  //   auto containerLoadingCP = ContainerLoadingCP(
+  //       Parameters.CPSolver, container, items, numberStops, loadingMask,
+  //       Parameters.LoadingProblem.SupportArea, maxRuntime);
+
+  //   auto status = containerLoadingCP.Solve();
+
+  py::module_ checker = py::module_::import("py_checker_no_sup");
+
+  // route 정보 = node 정보담은 vector = stopIds
+
+  bool pythonStatus = false;
+  LoadingStatus status = LoadingStatus::Infeasible;
+  try {
+    pythonStatus = checker.attr("check_no_sup")(stopIds).cast<bool>();
 
     if (pythonStatus) {
       status = LoadingStatus::FeasOpt;
@@ -222,6 +348,24 @@ LoadingStatus LoadingChecker::HeuristicCompleteCheck(
   /////////////////////////
   //////////////////////
   auto cpStatus = ConstraintProgrammingSolverPython(
+      PackingType::Complete, container, set, stopIds, items, false, maxRuntime);
+
+  return cpStatus;
+}
+
+/////////////// original repo - 초기해 맞추는 test용 함수
+LoadingStatus LoadingChecker::HeuristicCompleteCheckForTest(
+    const Container& container, const boost::dynamic_bitset<>& set,
+    const Collections::IdVector& stopIds, const std::vector<Cuboid>& items,
+    double maxRuntime) {
+  auto heuristicStatus =
+      PackingHeuristic(PackingType::Complete, container, stopIds, items);
+
+  if (heuristicStatus == LoadingStatus::FeasOpt) {
+    return LoadingStatus::FeasOpt;
+  }
+
+  auto cpStatus = ConstraintProgrammingSolver(
       PackingType::Complete, container, set, stopIds, items, false, maxRuntime);
 
   return cpStatus;

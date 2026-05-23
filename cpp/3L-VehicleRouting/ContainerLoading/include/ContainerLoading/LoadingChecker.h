@@ -69,15 +69,46 @@ class LoadingChecker {
 
   ///////////////////////
 
+  /////////////////////////
+  // Call the python gopt solver
+
+  [[nodiscard]] LoadingStatus ConstraintProgrammingSolverPythonNoSeq(
+      PackingType packingType, const Container& container,
+      const boost::dynamic_bitset<>& set, const Collections::IdVector& stopIds,
+      const std::vector<Cuboid>& items, bool isCallTypeExact,
+      double maxRuntime = std::numeric_limits<double>::max());
+
+  ///////////////////////
+
+  /////////////////////////
+  // Call the python gopt solver
+
+  [[nodiscard]] LoadingStatus ConstraintProgrammingSolverPythonNoSup(
+      PackingType packingType, const Container& container,
+      const boost::dynamic_bitset<>& set, const Collections::IdVector& stopIds,
+      const std::vector<Cuboid>& items, bool isCallTypeExact,
+      double maxRuntime = std::numeric_limits<double>::max());
+
+  ///////////////////////
+
   [[nodiscard]] LoadingStatus ConstraintProgrammingSolverGetPacking(
       PackingType packingType, const Container& container,
       const Collections::IdVector& stopIds, std::vector<Cuboid>& items,
       double maxRuntime) const;
 
+  ///////////////////
   [[nodiscard]] LoadingStatus HeuristicCompleteCheck(
       const Container& container, const boost::dynamic_bitset<>& set,
       const Collections::IdVector& stopIds, const std::vector<Cuboid>& items,
       double maxRuntime = std::numeric_limits<double>::max());
+
+  //////////////////
+  [[nodiscard]] LoadingStatus HeuristicCompleteCheckForTest(
+      const Container& container, const boost::dynamic_bitset<>& set,
+      const Collections::IdVector& stopIds, const std::vector<Cuboid>& items,
+      double maxRuntime = std::numeric_limits<double>::max());
+
+  //////////////////
 
   void SetBinPackingModel(GRBEnv* env, std::vector<Container>& containers,
                           std::vector<Group>& nodes,
@@ -128,7 +159,7 @@ class LoadingChecker {
 
   [[nodiscard]] bool SequenceIsCheckedTwoOpt(
       const Collections::IdVector& sequence) const;
-      
+
  private:
   std::chrono::high_resolution_clock::time_point mStartTime;
 
